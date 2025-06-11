@@ -18,7 +18,76 @@
     <!-- Подключаем твой JS с картой -->
     <script src="js/mapService.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
     <script>
+        function drawServiceChart(data) {
+            const labels = data.map(x => x.serviceName);
+            const orderCounts = data.map(x => x.orderCount);
+            const hoursSpent = data.map(x => x.hoursSpent);
+            const earnings = data.map(x => x.earnings);
+
+            const canvas = document.getElementById('serviceChart');
+            const ctx = canvas.getContext('2d');
+
+            // ⛔ Отключаем автоматическое масштабирование
+            canvas.style.width = '900px';
+            canvas.style.height = '400px';
+            canvas.width = 900;
+            canvas.height = 400;
+
+            if (window.myChart) {
+                window.myChart.destroy();
+            }
+
+            window.myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Количество заказов',
+                            data: orderCounts,
+                            backgroundColor: '#D26A5A',
+                            datalabels: {
+                                anchor: 'end',
+                                align: 'top',
+                                formatter: (_, ctx) => `₽${earnings[ctx.dataIndex].toFixed(0)}`
+                            }
+                        },
+                        {
+                            label: 'Часы работы',
+                            data: hoursSpent,
+                            backgroundColor: '#5A8FD2',
+                            datalabels: { display: false }
+                        }
+                    ]
+                },
+                options: {
+                    responsive: false, // 🚫 отключить адаптивность
+                    maintainAspectRatio: false, // 🚫 отключить соотношение сторон
+                    animation: false, // 🚫 отключить анимации
+                    plugins: {
+                        datalabels: {
+                            color: '#000',
+                            font: { weight: 'bold' }
+                        },
+                        legend: { position: 'top' },
+                        title: {
+                            display: true,
+                            text: 'Статистика по услугам',
+                            font: { size: 18 }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { stepSize: 1 }
+                        }
+                    }
+                },
+                plugins: [ChartDataLabels]
+            });
+        }
         function drawAdminCharts(photographers, services) {
             const ctx1 = document.getElementById('photographerChart').getContext('2d');
             const ctx2 = document.getElementById('serviceChart').getContext('2d');

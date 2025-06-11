@@ -11,7 +11,7 @@
     </div>
     <nav class="nav">
         <a href="/">Главная</a>
-        <a href="/ourphotographers">Наши фотографы</a>
+     
         <div class="dropdown">
             <a href="#" class="dropdown-toggle" @onclick="ToggleServicesDropdown">Услуги ▼</a>
             @if (servicesDropdownVisible)
@@ -21,7 +21,8 @@
                     <a href="/services/outdoor">Выездная фотосессия</a>
                 </div>
             }
-        </div>
+        </div>   
+        <a href="/ourphotographers">Наши фотографы</a>
 
 
         @if (IsPhotographer)
@@ -68,12 +69,13 @@
         <span class="close-btn" @onclick="ToggleSidebar">✕</span>
     </div>
     <a href="#">Главная</a>
-    <a href="/ourphotographers">Наши фотографы</a>
+   
     <div class="sidebar-section">
         <strong>Услуги</strong>
         <a href="/services/studio">Студийная фотосессия</a>
         <a href="/services/outdoor">Выездная фотосессия</a>
-    </div>
+    </div> 
+    <a href="/ourphotographers">Наши фотографы</a>
     @if (IsPhotographer)
     {
         <div class="sidebar-section">

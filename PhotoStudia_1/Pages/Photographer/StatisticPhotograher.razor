@@ -15,10 +15,11 @@
         max-width: 1100px;
         margin: 40px auto;
         padding: 30px;
-        background: #fff7ef;
+        background: #fff;
         border-radius: 20px;
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
         font-family: Arial, sans-serif;
+        text-align: center; /* 💡 Центруем всё */
     }
 
     .stat-chart {
@@ -43,7 +44,7 @@
     }
 
         .month-controls button {
-            background-color: #d1a45f;
+            background-color: #D26A5A;
             color: white;
             border: none;
             padding: 10px 16px;
@@ -55,7 +56,8 @@
         }
 
             .month-controls button:hover {
-                background-color: #bb924c;
+                background-color: #b24d40;
+                ;
             }
 
     .summary-grid {
@@ -98,12 +100,18 @@
         color: #333;
     }
 
+    h2.order-title {
+        text-align: center;
+        font-size: 28px;
+        margin-bottom: 20px;
+    }
+
 </style>
 
 <h2 class="order-title">Статистика за @CurrentMonth.ToString("MMMM yyyy")</h2>
 
 <div class="statistic-container">
-    <div class="order-title">Статистика за @CurrentMonth.ToString("MMMM yyyy")</div>
+  
 
     <div class="month-controls">
         <button @onclick="PreviousMonth" disabled="@IsPreviousDisabled">← Предыдущий</button>

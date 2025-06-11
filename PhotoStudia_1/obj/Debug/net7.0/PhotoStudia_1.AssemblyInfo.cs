@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PhotoStudia_1")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+15dc67bc43c9eea0b0f28dd1d05e4e79743a6dad")]
 [assembly: System.Reflection.AssemblyProductAttribute("PhotoStudia_1")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PhotoStudia_1")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

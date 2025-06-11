@@ -173,3 +173,4 @@ C:\Users\oberu\Desktop\Диплом\PhotoStudia_2\PhotoStudia_1\bin\Debug\net7.0
 C:\Users\oberu\Desktop\Диплом\PhotoStudia_2\PhotoStudia_1\bin\Debug\net7.0\Microsoft.Extensions.Options.dll
 C:\Users\oberu\Desktop\Диплом\PhotoStudia_2\PhotoStudia_1\bin\Debug\net7.0\Microsoft.JSInterop.dll
 C:\Users\oberu\Desktop\Диплом\PhotoStudia_2\PhotoStudia_1\bin\Debug\net7.0\MudBlazor.dll
+C:\Users\oberu\Desktop\Диплом\PhotoStudia_2\PhotoStudia_1\obj\Debug\net7.0\PhotoStudia_1.sourcelink.json
