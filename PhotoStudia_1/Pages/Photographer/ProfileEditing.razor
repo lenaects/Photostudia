@@ -1,0 +1,445 @@
+﻿@page "/photographer/setup"
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.EntityFrameworkCore
+@using PhotoStudia_1.Models
+@using PhotoStudia_1.Services
+@inject PhotostudiaContext DbContext
+@inject NavigationManager NavigationManager
+@inject PhotographerState PhotographerState
+@inject IDbContextFactory<PhotostudiaContext> DbFactory
+
+<style>
+    body {
+        background-color: #FCEFE4;
+        font-family: "Segoe UI", sans-serif;
+        margin: 0;
+    }
+
+    .setup-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        padding: 20px;
+    }
+
+    .setup-form {
+        background: #fff;
+        padding: 40px;
+        border-radius: 16px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        max-width: 600px;
+    }
+
+        .setup-form h1 {
+            font-size: 28px;
+            margin-bottom: 24px;
+            color: #333;
+            text-align: center;
+        }
+
+        .setup-form input,
+        .setup-form textarea,
+        .setup-form select {
+            width: 100%;
+            padding: 14px;
+            margin-bottom: 16px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            font-size: 15px;
+            background: #fff;
+            box-sizing: border-box;
+        }
+
+        .setup-form button {
+            padding: 12px 20px;
+            background-color: #D26A5A;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+            .setup-form button:hover {
+                background-color: #b65949;
+            }
+
+    .add-category-button {
+        margin-top: 8px;
+        margin-bottom: 20px;
+    }
+
+    .category-list {
+        max-height: 200px;
+        overflow-y: auto;
+        border: 1px solid #ccc;
+        padding: 10px;
+        border-radius: 8px;
+    }
+
+    .category-item {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        margin-bottom: 6px;
+        font-size: 15px;
+        gap: 8px;
+    }
+
+        .category-item input[type="checkbox"] {
+            margin: 0;
+        }
+
+        .category-item label {
+            margin: 0;
+            cursor: pointer;
+           /*  line-height: 1; */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+
+    .uploaded-preview {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 10px;
+    }
+
+    .preview-image {
+        width: 100px;
+        height: 100px;
+        object-fit: cover;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+    }
+
+    .preview-wrapper {
+        position: relative;
+        display: inline-block;
+    }
+
+    .delete-btn {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        background-color: #ff4d4f;
+        border: none;
+        border-radius: 50%;
+        color: white;
+        width: 22px;
+        height: 22px;
+        font-size: 16px;
+        line-height: 18px;
+        text-align: center;
+        cursor: pointer;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        padding: 0;
+    }
+</style>
+
+<div class="setup-container">
+    <div class="setup-form">
+        <h1>Заполнение профиля</h1>
+
+        <label>Имя</label>
+        <input @bind="PhotographerName" />
+
+        <label>Email</label>
+        <input @bind="PhotographerEmail" />
+
+        <label>Телефон</label>
+        <input @bind="PhotographerPhone" />
+        <div class="form-group mt-3">
+            <label style="font-weight: 600;">Фото фотографа:</label>
+            <InputFile OnChange="OnMainPhotoChanged" />
+        </div>
+
+        @if (MainPhoto != null)
+        {
+            <div class="uploaded-preview">
+                <img src="data:image/png;base64,@Convert.ToBase64String(MainPhoto)" class="preview-image" />
+            </div>
+        }
+
+        <textarea @bind="Description" placeholder="Описание"></textarea>
+        <label>Опыт работы (лет)</label>
+        <input type="number" @bind="Experience" placeholder="Опыт работы (лет)" />
+        <div class="form-group mt-3">
+            <label>Типы услуг:</label>
+            <div class="category-list">
+                @foreach (var service in AllServiceTypes)
+                {
+                    <div class="category-item">
+                        <label>
+                            <input type="checkbox"
+                                   @onchange="e => ToggleService(service.ServiceTypeId, ((ChangeEventArgs)e).Value)"
+                                   checked="@SelectedServiceTypeIds.Contains(service.ServiceTypeId)" />
+                            @service.Name
+                        </label>
+                    </div>
+                }
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Категории:</label>
+            <div class="category-list">
+                @foreach (var category in AllCategories)
+                {
+                    <div class="category-item">
+                        <label>
+                            <input type="checkbox"
+                                   @onchange="e => ToggleCategory(category.Id, ((ChangeEventArgs)e).Value)"
+                                   checked="@SelectedTypeShootingIds.Contains(category.Id)" />
+                            @category.Typeshooting1
+                        </label>
+                    </div>
+                }
+            </div>
+        </div>
+
+        
+        <div class="form-group mt-3">
+            <label for="portfolio-upload" style="font-weight: 600;">Загрузите свои работы:</label>
+            <InputFile id="portfolio-upload" OnChange="OnInputFileChanged" multiple />
+        </div>
+
+        @if (UploadedImages.Any())
+        {
+            <div class="uploaded-preview">
+                @for (int i = 0; i < UploadedImages.Count; i++)
+                {
+                    <div class="preview-wrapper" @key="UploadedImages[i].Id != 0 ? UploadedImages[i].Id : Guid.NewGuid()">
+                        <img src="data:image/png;base64,@Convert.ToBase64String(UploadedImages[i].Image)" class="preview-image" />
+                        <button class="delete-btn" @onclick="@(() => RemoveImage(i))">&times;</button>
+                    </div>
+                }
+            </div>
+        }
+        @if (!string.IsNullOrEmpty(SubmitError))
+        {
+            <div style="color: red; margin-bottom: 10px;">@SubmitError</div>
+        }
+        <button @onclick="SubmitProfile">Сохранить</button>
+    </div>
+</div>
+
+@code {
+    private string PhotographerName = string.Empty;
+    private string PhotographerEmail = string.Empty;
+    private string PhotographerPhone = string.Empty;
+    private byte[]? MainPhoto;
+    private string Description = string.Empty;
+    private int Experience;
+
+    private List<Typeshooting> AllCategories = new();
+    private List<int> SelectedTypeShootingIds = new();
+
+    private List<Portfolio> UploadedImages = new();
+    private List<int> ExistingPortfolioIds = new();
+
+    private List<ServiceType> AllServiceTypes = new();
+    private List<int> SelectedServiceTypeIds = new();
+
+    private string SubmitError = string.Empty;
+    protected override async Task OnInitializedAsync()
+    {
+        await using var context = DbFactory.CreateDbContext();
+        var photographer = await DbContext.Photographers.FirstOrDefaultAsync(p => p.Photographerid == PhotographerState.PhotographerId);
+        if (photographer != null)
+        {
+            PhotographerName = photographer.Name;
+            PhotographerEmail = photographer.Email;
+            PhotographerPhone = photographer.Phone;
+        }
+
+        var existingProfile = await DbContext.Profilphotographers.Include(p => p.Portfolios)
+            .FirstOrDefaultAsync(p => p.Pfotographerid == PhotographerState.PhotographerId);
+
+        if (existingProfile != null)
+        {
+            Description = existingProfile.Description;
+            Experience = existingProfile.Experience;
+            MainPhoto = existingProfile.Image;
+            UploadedImages = existingProfile.Portfolios.ToList();
+            ExistingPortfolioIds = existingProfile.Portfolios.Select(p => p.Id).ToList();
+
+            SelectedServiceTypeIds = await DbContext.ProfilServiceTypes
+       .Where(p => p.ProfilphotographerId == existingProfile.Id)
+       .Select(p => p.ServiceTypeId)
+       .ToListAsync();
+
+            SelectedTypeShootingIds = await DbContext.Profiltypeshootings
+                .Where(t => t.Profilphotographerid == existingProfile.Id)
+                .Select(t => t.Typeshootingid)
+                .ToListAsync();
+        }
+        AllServiceTypes = await DbContext.ServiceTypes.OrderBy(s => s.Name).ToListAsync();
+        AllCategories = await DbContext.Typeshootings.OrderBy(t => t.Typeshooting1).ToListAsync();
+    }
+
+    private void ToggleCategory(int categoryId, object? value)
+    {
+        bool isChecked = value?.ToString()?.ToLower() == "true";
+        if (isChecked && !SelectedTypeShootingIds.Contains(categoryId))
+            SelectedTypeShootingIds.Add(categoryId);
+        else if (!isChecked)
+            SelectedTypeShootingIds.Remove(categoryId);
+    }
+    private void ToggleService(int serviceId, object? value)
+    {
+        bool isChecked = value?.ToString()?.ToLower() == "true";
+        if (isChecked && !SelectedServiceTypeIds.Contains(serviceId))
+            SelectedServiceTypeIds.Add(serviceId);
+        else if (!isChecked)
+            SelectedServiceTypeIds.Remove(serviceId);
+    }
+
+    // Обработка множественного выбора
+    private async Task OnCategoryChanged(ChangeEventArgs e)
+    {
+        var selectedOptions = ((IEnumerable<string>)e.Value).ToList();
+        SelectedTypeShootingIds = selectedOptions.Select(int.Parse).ToList();
+    }
+
+
+
+    private async Task OnInputFileChanged(InputFileChangeEventArgs e)
+    {
+        foreach (var file in e.GetMultipleFiles())
+        {
+            using var ms = new MemoryStream();
+            await file.OpenReadStream().CopyToAsync(ms);
+            UploadedImages.Add(new Portfolio
+                {
+                    Profilphotographerid = PhotographerState.PhotographerId,
+                    Image = ms.ToArray()
+                });
+        }
+    }
+
+    private void RemoveImage(int index)
+    {
+        if (index >= 0 && index < UploadedImages.Count)
+        {
+            Console.WriteLine($"Удаляем фото с индексом {index}, ID: {UploadedImages[index].Id}");
+            UploadedImages.RemoveAt(index);
+            StateHasChanged();
+        }
+    }
+
+    private async Task SubmitProfile()
+    {
+        var photographer = await DbContext.Photographers.FirstOrDefaultAsync(p => p.Photographerid == PhotographerState.PhotographerId);
+        if (photographer != null)
+        {
+            photographer.Name = PhotographerName;
+            photographer.Email = PhotographerEmail;
+            photographer.Phone = PhotographerPhone;
+        }
+
+        var profile = await DbContext.Profilphotographers.Include(p => p.Portfolios)
+            .FirstOrDefaultAsync(p => p.Pfotographerid == PhotographerState.PhotographerId);
+        if (string.IsNullOrWhiteSpace(Description) || Experience <= 0 || MainPhoto == null ||
+            SelectedTypeShootingIds.Count == 0 || UploadedImages.Count == 0)
+        {
+            SubmitError = "Заполните все обязательные поля и добавьте хотя бы одну фотографию и категорию.";
+            return;
+        }
+        if (SelectedServiceTypeIds.Count == 0)
+        {
+            SubmitError = "Выберите хотя бы один тип услуги.";
+            return;
+        }
+        if (profile != null)
+        {
+            profile.Description = Description;
+            profile.Experience = Experience;
+            profile.Image = MainPhoto ?? Array.Empty<byte>();
+            DbContext.ProfilServiceTypes.RemoveRange(
+    DbContext.ProfilServiceTypes.Where(p => p.ProfilphotographerId == profile.Id));
+
+            foreach (var serviceId in SelectedServiceTypeIds)
+            {
+                DbContext.ProfilServiceTypes.Add(new ProfilServiceType
+                    {
+                        ProfilphotographerId = profile.Id,
+                        ServiceTypeId = serviceId
+                    });
+            }
+            DbContext.Profiltypeshootings.RemoveRange(DbContext.Profiltypeshootings.Where(p => p.Profilphotographerid == profile.Id));
+            foreach (var typeId in SelectedTypeShootingIds)
+            {
+                DbContext.Profiltypeshootings.Add(new Profiltypeshooting { Profilphotographerid = profile.Id, Typeshootingid = typeId });
+            }
+
+            var remainingIds = UploadedImages.Where(p => p.Id != 0).Select(p => p.Id).ToList();
+            var toDelete = profile.Portfolios.Where(p => !remainingIds.Contains(p.Id)).ToList();
+            DbContext.Portfolios.RemoveRange(toDelete);
+
+            // Добавим только новые
+            foreach (var image in UploadedImages)
+            {
+                if (image.Id == 0) // новые — без ID
+                {
+                    DbContext.Portfolios.Add(new Portfolio
+                        {
+                            Profilphotographerid = profile.Id,
+                            Image = image.Image
+                        });
+                }
+            }
+        }
+        else
+        {
+            profile = new Profilphotographer
+                {
+                    Pfotographerid = PhotographerState.PhotographerId,
+                    Description = Description,
+                    Experience = Experience,
+                    Image = MainPhoto ?? Array.Empty<byte>()
+                };
+            DbContext.Profilphotographers.Add(profile);
+            await DbContext.SaveChangesAsync();
+            DbContext.ProfilServiceTypes.RemoveRange(
+    DbContext.ProfilServiceTypes.Where(p => p.ProfilphotographerId == profile.Id));
+
+            // Добавить выбранные
+            foreach (var serviceId in SelectedServiceTypeIds)
+            {
+                DbContext.ProfilServiceTypes.Add(new ProfilServiceType
+                    {
+                        ProfilphotographerId = profile.Id,
+                        ServiceTypeId = serviceId
+                    });
+            }
+            foreach (var typeId in SelectedTypeShootingIds)
+            {
+                DbContext.Profiltypeshootings.Add(new Profiltypeshooting { Profilphotographerid = profile.Id, Typeshootingid = typeId });
+            }
+
+            foreach (var image in UploadedImages)
+            {
+                DbContext.Portfolios.Add(new Portfolio { Profilphotographerid = profile.Id, Image = image.Image });
+            }
+        }
+
+        await DbContext.SaveChangesAsync();
+        NavigationManager.NavigateTo($"/profil/{PhotographerState.PhotographerId}");
+    }
+
+    private async Task OnMainPhotoChanged(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file != null)
+        {
+            using var ms = new MemoryStream();
+            await file.OpenReadStream().CopyToAsync(ms);
+            MainPhoto = ms.ToArray();
+        }
+    }
+}

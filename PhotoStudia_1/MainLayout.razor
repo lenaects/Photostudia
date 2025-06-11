@@ -1,0 +1,182 @@
+﻿@using PhotoStudia_1.Models
+@using PhotoStudia_1.Services
+@inject PhotostudiaContext DbContext
+@using Microsoft.EntityFrameworkCore
+@inherits LayoutComponentBase
+@inject NavigationManager NavigationManager
+@inject AdminState AdminState
+<div class="header">
+    <div class="logo-container" @onclick="ToggleSidebar">
+        <img src="images/logo.png" alt="Логотип" class="logo-img" />
+    </div>
+    <nav class="nav">
+        <a href="/">Главная</a>
+        <a href="/ourphotographers">Наши фотографы</a>
+        <div class="dropdown">
+            <a href="#" class="dropdown-toggle" @onclick="ToggleServicesDropdown">Услуги ▼</a>
+            @if (servicesDropdownVisible)
+            {
+                <div class="dropdown-menu">
+                    <a href="/services/studio">Студийная фотосессия</a>
+                    <a href="/services/outdoor">Выездная фотосессия</a>
+                </div>
+            }
+        </div>
+
+
+        @if (IsPhotographer)
+        {
+            <div class="dropdown">
+                <a href="#" class="dropdown-toggle" @onclick="HandleRestrictedAccess">
+                    Личный кабинет ▼
+                </a>
+                @if (dropdownVisible && !IsProfileIncomplete)
+                {
+                    <div class="dropdown-menu">
+                        <a href="@($"/profil/{PhotographerState.PhotographerId}")">Профиль</a>
+                        <a href="workschedule">График работы</a>
+                        <a href="/photographer/orders">Мои заказы</a>
+                        <a href="/photographer/statistics">Личная статистика</a>
+                    </div>
+                }
+            </div>
+        }
+        @if (AdminState.IsLoggedIn)
+        {
+            <div class="dropdown">
+                <a href="#" class="dropdown-toggle" @onclick="ToggleDropdown">Админ-панель ▼</a>
+                @if (dropdownVisible)
+                {
+                    <div class="dropdown-menu">
+                        <a href="/adminorders">Заказы</a>
+                        <a href="/admin/requests">Заявки</a>
+                        <a href="/admin/statistics">Статистика</a>
+                    </div>
+                }
+            </div>
+        }
+        @if (IsPhotographer || AdminState.IsLoggedIn)
+        {
+            <a href="#" @onclick="Logout">Выход</a>
+        }
+    </nav>
+</div>
+
+<!-- Боковая панель -->
+<div class="sidebar @(sidebarVisible ? "open" : "")">
+    <div class="sidebar-header">
+        <span class="close-btn" @onclick="ToggleSidebar">✕</span>
+    </div>
+    <a href="#">Главная</a>
+    <a href="/ourphotographers">Наши фотографы</a>
+    <div class="sidebar-section">
+        <strong>Услуги</strong>
+        <a href="/services/studio">Студийная фотосессия</a>
+        <a href="/services/outdoor">Выездная фотосессия</a>
+    </div>
+    @if (IsPhotographer)
+    {
+        <div class="sidebar-section">
+            <strong>Личный кабинет</strong>
+            @if (!IsProfileIncomplete)
+            {
+                <a href="@($"/profil/{PhotographerState.PhotographerId}")">Профиль</a>
+                <a href="/workschedule">График работы</a>
+                <a href="/photographer/orders">Мои заказы</a>
+                <a href="/photographer/statistics">Личная статистика</a>
+            }
+            else
+            {
+                <a href="#" @onclick="ShowProfileWarning">Профиль</a>
+                <a href="#" @onclick="ShowProfileWarning">График работы</a>
+                <a href="#" @onclick="ShowProfileWarning">Мои заказы</a>
+                <a href="#" @onclick="ShowProfileWarning">Личная статистика</a>
+            }
+        </div>
+    }
+    @if (AdminState.IsLoggedIn)
+    {
+        <div class="sidebar-section">
+            <strong>Админ-панель</strong>
+            <a href="/adminorders">Заказы</a>
+            <a href="/admin/requests">Заявки</a>
+            <a href="/admin/statistics">Статистика</a>
+        </div>
+    }
+    @if (IsPhotographer || AdminState.IsLoggedIn)
+    {
+        <a href="#" @onclick="Logout">Выход</a>
+    }
+</div>
+@if (showWarningMessage)
+{
+    <div style="background-color: #ffe0e0; color: #a00; padding: 12px; margin: 10px auto; border-radius: 8px; max-width: 600px; text-align: center;">
+        Пожалуйста, заполните ваш профиль, чтобы получить доступ к другим разделам сайта.
+    </div>
+}
+<main> @Body </main>
+@code {
+    [Inject] private PhotographerState PhotographerState { get; set; } = default!;
+    private bool IsPhotographer => PhotographerState?.PhotographerId > 0;
+    private bool sidebarVisible = false;
+    private bool dropdownVisible = false;
+    private bool IsProfileIncomplete = false;
+    private bool showWarningMessage = false;
+    private bool servicesDropdownVisible = false;
+    private void ToggleServicesDropdown()
+    {
+        servicesDropdownVisible = !servicesDropdownVisible;
+    }
+    private void ToggleSidebar()
+    {
+        sidebarVisible = !sidebarVisible;
+    }
+    private void ToggleDropdown()
+    {
+        dropdownVisible = !dropdownVisible;
+    }
+    private void ShowProfileWarning()
+    {
+        showWarningMessage = true;
+        StateHasChanged();
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        if (IsPhotographer)
+        {
+            var profile = await DbContext.Profilphotographers
+                .Include(p => p.Portfolios)
+                .FirstOrDefaultAsync(p => p.Pfotographerid == PhotographerState.PhotographerId);
+
+            IsProfileIncomplete = profile == null ||
+                string.IsNullOrWhiteSpace(profile.Description) ||
+                profile.Experience == 0 ||
+                profile.Image == null ||
+                !await DbContext.Profiltypeshootings.AnyAsync(t => t.Profilphotographerid == profile.Id) ||
+                profile.Portfolios.Count == 0;
+
+            // 👉 если профиль неполный — редирект
+            if (IsProfileIncomplete && NavigationManager.Uri != NavigationManager.BaseUri + "photographer/setup")
+            {
+                NavigationManager.NavigateTo("/photographer/setup", true);
+            }
+        }
+    }
+    private void HandleRestrictedAccess()
+    {
+        if (IsProfileIncomplete)
+        {
+            ShowProfileWarning();
+        }
+        else
+        {
+            ToggleDropdown(); // откроет меню
+        }
+    }
+    private void Logout()
+    {
+        PhotographerState.Logout();
+        AdminState.Logout();
+        NavigationManager.NavigateTo("/", true);
+    }
+}

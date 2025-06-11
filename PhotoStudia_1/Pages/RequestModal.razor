@@ -1,0 +1,231 @@
+﻿@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Forms
+@using PhotoStudia_1.Models
+@inject PhotostudiaContext DbContext
+@if (Show)
+{
+    <div class="modal-overlay">
+        <div class="modal">
+            <h2 class="modal-title">Запись на фотосессию</h2>
+            <p class="modal-subtitle">Пожалуйста, заполните данные для заявки</p>
+
+            <!-- Обязательные поля -->
+            <input placeholder="Имя" @bind="Request.ClientName" required />
+            <input placeholder="Телефон" @bind="Request.ClientPhone" required />
+            <input placeholder="Email" @bind="Request.ClientEmail" required type="email" />
+
+            <!-- Необязательный фотограф -->
+            <select @bind="Request.PhotographerId">
+                <option value="">Выберите фотографа (необязательно)</option>
+                @foreach (var p in Photographers)
+                {
+                    <option value="@p.Photographerid">@p.Name</option>
+                }
+            </select>
+
+            <!-- Тип услуги -->
+            <select @onchange="OnServiceTypeChanged">
+                <option value="">Выберите тип услуги  (необязательно)</option>
+                @foreach (var t in ServiceTypes)
+                {
+                    <option value="@t.ServiceTypeId">@t.Name</option>
+                }
+            </select>
+
+            <!-- Студийные услуги -->
+            @if (IsStudio && StudioServices?.Any() == true)
+            {
+                <select @bind="Request.ServiceId">
+                    <option value="">Выберите студийную услугу (необязательно)</option>
+                    @foreach (var s in StudioServices)
+                    {
+                        <option value="@s.Serviceid">@s.Name</option>
+                    }
+                </select>
+            }
+
+            <!-- Тип съёмки -->
+            <select @bind="Request.ShootingTypeId">
+                <option value="">Выберите тип съёмки (необязательно)</option>
+                @foreach (var t in Types)
+                {
+                    <option value="@t.Id">@t.Typeshooting1</option>
+                }
+            </select>
+
+            <!-- Дата -->
+        <InputDate @bind-Value="Request.ShootingDate" />
+            @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+            {
+                <p class="error-message">@ErrorMessage</p>
+            }
+
+            <!-- Кнопки -->
+            <div class="button-group">
+                <button class="save-button" @onclick="SubmitRequest">Сохранить</button>
+                <button class="cancel-button" @onclick="() => Show = false">Отмена</button>
+            </div>
+          
+        </div>
+    </div>
+}
+
+<style>
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.4);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
+    .modal {
+        margin-top: 40px;
+        background: #fff;
+        padding: 30px;
+        border-radius: 16px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        width: 100%;
+        max-width: 500px;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+   .modal-title {
+    font-size: 24px;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 5px;
+    color: #333;
+}
+
+    .modal-subtitle {
+        font-size: 14px;
+        text-align: center;
+        color: #666;
+        margin-bottom: 20px;
+    }
+
+    .modal input,
+    .modal select {
+        width: 100%;
+        padding: 12px;
+        margin-bottom: 14px;
+        border-radius: 10px;
+        border: 1px solid #ccc;
+        font-size: 15px;
+    }
+
+    .button-group {
+        display: flex;
+        justify-content: center;
+        margin-top: 10px;
+    }
+
+    .save-button {
+        background-color: #D26A5A;
+        color: white;
+        padding: 12px 20px;
+        border: none;
+        border-radius: 10px;
+        margin-right: 10px;
+        cursor: pointer;
+    }
+
+    .cancel-button {
+        background-color: transparent;
+        color: #555;
+        padding: 12px 20px;
+        border: 1px solid #aaa;
+        border-radius: 10px;
+        cursor: pointer;
+    }
+
+    .error-message {
+        color: #D02626; /* ярко-красный */
+        text-align: center;
+        margin-top: 12px;
+        font-size: 15px;
+        font-weight: 500;
+    }
+</style>
+
+@code {
+    [Parameter] public bool Show { get; set; }
+    [Parameter] public EventCallback<bool> ShowChanged { get; set; }
+
+    private Request Request { get; set; } = new();
+    private bool IsStudio = false;
+    private string ErrorMessage = "";
+
+    private List<PhotoStudia_1.Models.Photographer> Photographers = new();
+    private List<ServiceType> ServiceTypes = new();
+    private List<Service> Services = new();
+    private List<Service> StudioServices = new();
+    private List<Typeshooting> Types = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        Photographers = await DbContext.Photographers.ToListAsync();
+        Services = await DbContext.Services.ToListAsync();
+        Types = await DbContext.Typeshootings.ToListAsync();
+        ServiceTypes = await DbContext.ServiceTypes.ToListAsync();
+    }
+
+    private async Task OnServiceTypeChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var selectedTypeId))
+        {
+            Request.ServiceTypeId = selectedTypeId;
+        }
+
+        var selected = ServiceTypes.FirstOrDefault(t => t.ServiceTypeId == Request.ServiceTypeId);
+        IsStudio = selected?.Name?.Trim().Equals("студийная", StringComparison.OrdinalIgnoreCase) == true;
+
+        if (IsStudio)
+        {
+            StudioServices = await DbContext.Services
+                .Where(s => s.ServiceTypeId == Request.ServiceTypeId)
+                .ToListAsync();
+        }
+        else
+        {
+            StudioServices.Clear();
+            Request.ServiceId = null;
+        }
+    }
+
+    private async Task SubmitRequest()
+    {
+        ErrorMessage = "";
+
+        if (string.IsNullOrWhiteSpace(Request.ClientName) ||
+            string.IsNullOrWhiteSpace(Request.ClientPhone) ||
+            string.IsNullOrWhiteSpace(Request.ClientEmail))
+        {
+            ErrorMessage = "Пожалуйста, заполните имя, телефон и email.";
+            return;
+        }
+
+        if (!System.Text.RegularExpressions.Regex.IsMatch(Request.ClientPhone, @"^\+?\d+$"))
+        {
+            ErrorMessage = "Телефон должен содержать только цифры и символ +.";
+            return;
+        }
+
+        if (!System.Text.RegularExpressions.Regex.IsMatch(Request.ClientEmail, @"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"))
+        {
+            ErrorMessage = "Введите корректный Email (латиница, символ @ и домен).";
+            return;
+        }
+
+        DbContext.Requests.Add(Request);
+        await DbContext.SaveChangesAsync();
+        await ShowChanged.InvokeAsync(false);
+    }
+}

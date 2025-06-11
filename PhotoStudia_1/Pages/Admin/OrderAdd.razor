@@ -1,0 +1,611 @@
+﻿@using Microsoft.EntityFrameworkCore
+@using PhotoStudia_1.Models
+@inject PhotostudiaContext DbContext
+@inject NavigationManager NavigationManager
+@inject IServiceScopeFactory ScopeFactory
+
+@if (Show)
+{
+    <div class="modal-overlay">
+        <div class="modal" style="background-color: #EBDACB; padding: 20px; border-radius: 10px; width: 600px; margin: 0 auto;">
+            <h2 style="text-align: center;">@((IsEditing ? "Редактирование" : "Добавление") + " заказа")</h2>
+            <p class="modal-subtitle" style="text-align: center;">Заполните данные заказа</p>
+
+            <!-- Данные клиента -->
+            <input placeholder="Имя клиента" @bind="SelectedClientName" @onblur="CheckClientExistence"
+                   required />
+
+            <input placeholder="Телефон" @bind="SelectedClientPhone" @onblur="CheckClientExistence"
+                   required />
+
+            <input placeholder="Email" @bind="SelectedClientEmail" type="email"
+                    />
+
+            <!-- Дата заказа и дата съёмки -->
+            <input type="date" @bind="OrderDate"
+                   style="width: 100%; margin-bottom: 10px; padding: 10px;" required />
+            <input type="date" value="@AppointmentDate.ToString("yyyy-MM-dd")" @onchange="OnAppointmentDateChanged" 
+                   style="width: 100%; margin-bottom: 10px; padding: 10px;" required />
+
+            <!-- Услуга -->
+            <select @onchange="async e => await OnServiceChanged(e)"
+                    style="width: 100%; margin-bottom: 10px; padding: 10px;" required>
+                <option value="">Выберите услугу</option>
+                @foreach (var service in FilteredServices)
+                {
+                    <option value="@service.Serviceid" selected="@(service.Serviceid == SelectedServiceId ? "selected" : null)">
+                        @service.Name
+                    </option>
+                }
+            </select>
+
+            <!-- Тип съёмки (если есть) -->
+            @if (FilteredShootingTypes?.Any() == true)
+            {
+                <select @bind="SelectedTypeShootingId"
+                        style="width: 100%; margin-bottom: 10px; padding: 10px;" required>
+                    <option value="">Выберите тип съёмки</option>
+                    @foreach (var t in FilteredShootingTypes)
+                    {
+                        <option value="@t.Id">@t.Typeshooting1</option>
+                    }
+                </select>
+            }
+
+            <!-- Мобильный заказ -->
+            @if (IsMobileOrder)
+            {
+                <input placeholder="Адрес мероприятия" @bind="MobileOrderAddress"
+                       style="width: 100%; margin-bottom: 10px; padding: 10px;" required />
+                <textarea placeholder="Описание мероприятия" @bind="MobileOrderDescription"
+                          style="width: 100%; margin-bottom: 10px; padding: 10px;" required></textarea>
+            }
+
+            <!-- Время начала -->
+            <select @onchange="OnStartTimeChanged"
+                    style="width: 100%; margin-bottom: 10px; padding: 10px;" required>
+                <option value="">Начало съёмки</option>
+                @for (int hour = 9; hour <= 20; hour++)
+                {
+                    var time = new TimeOnly(hour, 0);
+                    <option value="@time.ToString(@"HH\:mm")">@($"{hour:00}:00")</option>
+                }
+            </select>
+
+            <!-- Время окончания -->
+            <select @onchange="OnEndTimeChanged"
+                    style="width: 100%; margin-bottom: 10px; padding: 10px;" required>
+                <option value="">Окончание съёмки</option>
+                @for (int hour = 10; hour <= 21; hour++)
+                {
+                    var time = new TimeOnly(hour, 0);
+                    <option value="@time.ToString(@"HH\:mm")">@($"{hour:00}:00")</option>
+                }
+            </select>
+
+            <!-- Фотограф -->
+            <select @bind="SelectedPhotographerId"
+                    style="width: 100%; margin-bottom: 10px; padding: 10px;" required>
+                <option value="">Выберите фотографа</option>
+                @foreach (var p in AvailablePhotographers)
+                {
+                    <option value="@p.Photographerid">@p.Name</option>
+                }
+            </select>
+
+            <!-- Ошибка -->
+            @if (!string.IsNullOrEmpty(ErrorMessage))
+            {
+                <div style="color: red; font-weight: bold; margin-bottom: 10px;">
+                    @ErrorMessage
+                </div>
+            }
+
+            <!-- Успех -->
+            @if (IsSuccess)
+            {
+                <div style="color: green; font-weight: bold; margin-bottom: 10px;">
+                    Заказ успешно добавлен.
+                </div>
+            }
+
+            <!-- Кнопки -->
+            <div class="button-group" style="display: flex; justify-content: space-between;">
+                <button class="save-button" @onclick="HandleAddOrder"
+                        style="background-color: #d1a45f; color: white; padding: 10px 20px; border: none; border-radius: 5px;">
+                    Сохранить
+                </button>
+                <button class="cancel-button" @onclick="() => Show = false"
+                        style="background-color: #999; color: white; padding: 10px 20px; border: none; border-radius: 5px;">
+                    Отмена
+                </button>
+            </div>
+        </div>
+    </div>
+}
+<style>
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.4);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
+    .modal {
+        margin-top: 40px;
+        background: #fff;
+        padding: 30px;
+        border-radius: 16px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        width: 100%;
+        max-width: 500px;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    .modal-title {
+        font-size: 24px;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 5px;
+        color: #333;
+    }
+
+    .modal-subtitle {
+        font-size: 14px;
+        text-align: center;
+        color: #666;
+        margin-bottom: 20px;
+    }
+
+    .modal input,
+    .modal select,
+    .modal textarea {
+        width: 100%;
+        padding: 12px;
+        margin-bottom: 14px;
+        border-radius: 10px;
+        border: 1px solid #ccc;
+        font-size: 15px;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    .button-group {
+        display: flex;
+        justify-content: center;
+        margin-top: 10px;
+    }
+
+    .save-button {
+        background-color: #D26A5A;
+        color: white;
+        padding: 12px 20px;
+        border: none;
+        border-radius: 10px;
+        margin-right: 10px;
+        cursor: pointer;
+    }
+
+    .cancel-button {
+        background-color: transparent;
+        color: #555;
+        padding: 12px 20px;
+        border: 1px solid #aaa;
+        border-radius: 10px;
+        cursor: pointer;
+    }
+
+    .error-message {
+        color: #D02626;
+        text-align: center;
+        margin-top: 12px;
+        font-size: 15px;
+        font-weight: 500;
+    }
+</style>
+
+@code {
+    [Parameter] public bool Show { get; set; }
+    [Parameter] public EventCallback<bool> ShowChanged { get; set; }
+    private string SelectedClientName { get; set; } = string.Empty;
+    private string SelectedClientPhone { get; set; } = string.Empty;
+    private string SelectedClientEmail { get; set; } = string.Empty;
+
+    private string ErrorMessage { get; set; } = string.Empty;
+    private bool IsSuccess { get; set; } = false;
+
+    private List<Service> FilteredServices { get; set; } = new();
+    private List<Photographer> AvailablePhotographers { get; set; } = new();
+
+    private int SelectedClientId { get; set; }
+    private int SelectedServiceId { get; set; }
+    private int SelectedPhotographerId { get; set; }
+    private DateOnly OrderDate { get; set; } = DateOnly.FromDateTime(DateTime.Now);
+    private DateOnly AppointmentDate { get; set; } = DateOnly.FromDateTime(DateTime.Now);
+    private string ClientName { get; set; }   // Для имени клиента
+   private string ClientPhone { get; set; } // Для телефона
+   private string ClientEmail { get; set; }  // Для электронной почты
+    private TimeOnly? StartTime { get; set; }
+    private TimeOnly? EndTime { get; set; }
+    private string MobileOrderAddress { get; set; } = string.Empty; // Адрес выездного мероприятия
+    private string MobileOrderDescription { get; set; } = string.Empty; // Описание мероприятия
+    private bool IsMobileOrder { get; set; } = false; // Флаг выездной фотосессии
+    [Parameter] public int? OrderId { get; set; }
+    private bool IsEditing => OrderId.HasValue;
+    private Order CurrentOrder { get; set; }
+
+    private int? SelectedTypeShootingId { get; set; }
+    private List<Typeshooting> FilteredShootingTypes { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        if (IsEditing)
+        {
+            CurrentOrder = await DbContext.Orders
+                .Include(o => o.Client)
+                .Include(o => o.Service)
+                .Include(o => o.Mobileorders)
+                .FirstOrDefaultAsync(o => o.Orderid == OrderId);
+
+            if (CurrentOrder != null)
+            {
+                // Заполнение данных формы
+                SelectedServiceId = CurrentOrder.Serviceid;
+                SelectedClientName = CurrentOrder.Client.Name;
+                SelectedClientPhone = CurrentOrder.Client.Phone;
+                SelectedClientEmail = CurrentOrder.Client.Email;
+                AppointmentDate = CurrentOrder.Appointmentdate;
+                StartTime = CurrentOrder.Starttime;
+                EndTime = CurrentOrder.Endtime;
+                SelectedPhotographerId = CurrentOrder.Photographerid;
+                if (CurrentOrder.Mobileorders.Any())
+                {
+                    IsMobileOrder = true;
+                    MobileOrderAddress = CurrentOrder.Mobileorders.First().Eventaddress;
+                    MobileOrderDescription = CurrentOrder.Mobileorders.First().Description;
+                }
+            }
+        }
+
+        FilteredServices = await DbContext.Services
+        .Where(s => s.ServiceType.Name == "студийная")
+        .ToListAsync();
+
+        AvailablePhotographers = await DbContext.Photographers.ToListAsync();
+
+        FilteredShootingTypes = await DbContext.Typeshootings.ToListAsync();
+    
+}
+
+    private async Task LoadData()
+    {
+        FilteredServices = await DbContext.Services
+            .Where(s => s.ServiceType.Name == "Студийная").ToListAsync();
+        AvailablePhotographers = await DbContext.Photographers.ToListAsync();
+        StateHasChanged();
+    }
+
+    private async Task CheckClientExistence()
+    {
+        var existingClient = await DbContext.Clients
+            .FirstOrDefaultAsync(c => c.Name == SelectedClientName && c.Phone == SelectedClientPhone);
+        if (existingClient != null)
+        {
+            SelectedClientId = existingClient.Clientid;
+            SelectedClientEmail = existingClient.Email;
+            ErrorMessage = "Клиент с таким именем и номером телефона уже существует.";
+        }
+        else
+        {
+            SelectedClientId = 0;
+        }
+    }
+
+    private bool ValidateInput()
+    {
+        ValidateAppointmentDate();
+        if (!string.IsNullOrEmpty(ErrorMessage)) return false;
+
+        if (OrderDate > AppointmentDate)
+        {
+            ErrorMessage = "Дата оформления не может быть позже даты съемки.";
+            return false;
+        }
+
+        if (StartTime == null || EndTime == null)
+        {
+            ErrorMessage = "Выберите время начала и окончания съемки.";
+            return false;
+        }
+
+        if (StartTime >= EndTime)
+        {
+            ErrorMessage = "Время окончания съемки должно быть позже времени начала.";
+            return false;
+        }
+
+        ErrorMessage = string.Empty;
+        return true;
+    }
+    private void ValidateAppointmentDate()
+    {
+        if (AppointmentDate < DateOnly.FromDateTime(DateTime.Now))
+        {
+            ErrorMessage = "Дата съемки не может быть в прошлом.";
+        }
+    }
+
+    private async Task HandleAddOrder()
+    {  
+        if (!await IsOrderTimeAvailable() || !ValidateInput())
+        {
+            return;
+        }
+
+        if (IsEditing)
+        {
+            // Обновление существующего заказа
+            var order = await DbContext.Orders
+                .Include(o => o.Client)
+                .Include(o => o.Mobileorders)
+                .FirstOrDefaultAsync(o => o.Orderid == OrderId);
+
+            if (order != null)
+            {
+                // Обновление данных клиента
+                order.Client.Name = SelectedClientName;
+                order.Client.Phone = SelectedClientPhone;
+                order.Client.Email = SelectedClientEmail;
+
+                // Обновление данных заказа
+                order.Serviceid = SelectedServiceId;
+                order.Appointmentdate = AppointmentDate;
+                order.Starttime = StartTime ?? new TimeOnly(0, 0);
+                order.Endtime = EndTime ?? new TimeOnly(0, 0);
+                order.Typeshootingid = SelectedTypeShootingId;
+
+                // Обновление данных выездного заказа
+                if (IsMobileOrder)
+                {
+                    if (order.Mobileorders.Any())
+                    {
+                        var mobileOrder = order.Mobileorders.First();
+                        mobileOrder.Eventaddress = MobileOrderAddress;
+                        mobileOrder.Description = MobileOrderDescription;
+                    }
+                    else
+                    {
+                        order.Mobileorders.Add(new Mobileorder
+                            {
+                                Eventaddress = MobileOrderAddress,
+                                Description = MobileOrderDescription
+                            });
+                    }
+                }
+                else
+                {
+                    order.Mobileorders.Clear();
+                }
+
+                await DbContext.SaveChangesAsync();
+                NavigationManager.NavigateTo("/adminorders");
+            }
+        }
+        else
+        {
+            // Добавление нового заказа
+            if (SelectedClientId == 0)
+            {
+                var newClient = new Client
+                    {
+                        Name = SelectedClientName,
+                        Phone = SelectedClientPhone,
+                        Email = SelectedClientEmail
+                    };
+                DbContext.Clients.Add(newClient);
+                await DbContext.SaveChangesAsync();
+                SelectedClientId = newClient.Clientid;
+            }
+
+            var newOrder = new Order
+                {
+                    Clientid = SelectedClientId,
+                    Photographerid = SelectedPhotographerId,
+                    Serviceid = SelectedServiceId,
+                    Orderdate = OrderDate,
+                    Appointmentdate = AppointmentDate,
+                    Starttime = StartTime ?? new TimeOnly(0, 0),
+                    Endtime = EndTime ?? new TimeOnly(0, 0)
+                };
+
+            DbContext.Orders.Add(newOrder);
+            await DbContext.SaveChangesAsync();
+
+            if (IsMobileOrder)
+            {
+                var mobileOrder = new Mobileorder
+                    {
+                        Orderid = newOrder.Orderid,
+                        Eventaddress = MobileOrderAddress,
+                        Description = MobileOrderDescription
+                    };
+
+                DbContext.Mobileorders.Add(mobileOrder);
+                await DbContext.SaveChangesAsync();
+            }
+
+            IsSuccess = true;
+            NavigationManager.NavigateTo("/adminorders");
+        }
+    }
+    private async Task<bool> IsOrderTimeAvailable()
+    {
+        // Проверяем, задан ли идентификатор услуги
+        if (SelectedServiceId == 0)
+        {
+            ErrorMessage = "Выберите услугу перед проверкой доступности времени.";
+            return false;
+        }
+
+        // Загружаем выбранную услугу
+        var selectedService = await DbContext.Services
+            .Include(s => s.ServiceType)
+            .FirstOrDefaultAsync(s => s.Serviceid == SelectedServiceId);
+
+        if (selectedService == null)
+        {
+            ErrorMessage = "Выбранная услуга не найдена.";
+            return false;
+        }
+
+        // Проверяем корректность времени
+        if (StartTime == null || EndTime == null || StartTime.Value.ToTimeSpan() >= EndTime.Value.ToTimeSpan())
+        {
+            ErrorMessage = "Время начала должно быть раньше времени окончания.";
+            return false;
+        }
+
+        // Если это не "Выездная фотосессия", проверяем пересечения
+        if (!string.Equals(selectedService.Name, "Выездная фотосессия", StringComparison.OrdinalIgnoreCase))
+        {
+            var overlappingOrderQuery = DbContext.Orders
+            .Where(o => o.Appointmentdate == AppointmentDate)
+            .Where(o => o.Serviceid == SelectedServiceId)
+            .Where(o =>
+               (StartTime >= o.Starttime && StartTime < o.Endtime) ||
+    (EndTime > o.Starttime && EndTime <= o.Endtime) ||
+    (StartTime <= o.Starttime && EndTime >= o.Endtime));
+
+            // Исключаем текущий заказ, если в режиме редактирования
+            if (IsEditing && OrderId.HasValue)
+            {
+                overlappingOrderQuery = overlappingOrderQuery.Where(o => o.Orderid != OrderId.Value);
+            }
+
+            var overlappingOrder = await overlappingOrderQuery.FirstOrDefaultAsync();
+
+            if (overlappingOrder != null)
+            {
+                ErrorMessage = "В указанное время уже есть заказ на эту услугу.";
+                return false;
+            }
+        }
+
+        // Если ошибок нет, очищаем сообщение
+        ErrorMessage = string.Empty;
+        return true;
+    }
+    private async Task ShowError(string message)
+    {
+        // Замените этот код на ваш механизм отображения ошибок
+        Console.WriteLine($"Ошибка: {message}");
+        await Task.CompletedTask;
+    }
+
+    private async Task ShowSuccess(string message)
+    {
+        // Замените этот код на ваш механизм отображения успешных действий
+        Console.WriteLine($"Успех: {message}");
+        await Task.CompletedTask;
+    }
+    private async Task UpdateAvailablePhotographers()
+    {
+        if (AppointmentDate == default || StartTime == null || EndTime == null)
+        {
+            AvailablePhotographers.Clear();
+            return;
+        }
+
+      
+
+        var startTime = StartTime.Value.ToTimeSpan();
+        var endTime = EndTime.Value.ToTimeSpan();
+
+        AvailablePhotographers = await DbContext.Photographers
+            .Where(p => DbContext.Photographerschedules
+                .Any(s =>
+                    s.Photographerid == p.Photographerid &&
+                    s.Date == AppointmentDate &&
+                    s.Starttime <= startTime &&
+                    s.Endtime >= endTime))
+            .Where(p => !DbContext.Orders
+                .Any(o =>
+                    o.Photographerid == p.Photographerid &&
+                    o.Appointmentdate == AppointmentDate &&
+                    (
+                        (startTime >= o.Starttime.ToTimeSpan() && startTime < o.Endtime.ToTimeSpan()) ||
+                        (endTime > o.Starttime.ToTimeSpan() && endTime <= o.Endtime.ToTimeSpan()) ||
+                        (startTime <= o.Starttime.ToTimeSpan() && endTime >= o.Endtime.ToTimeSpan())
+                    )))
+            .ToListAsync();
+
+        StateHasChanged();
+    }
+    private async Task OnAppointmentDateChanged(ChangeEventArgs e)
+    {
+        AppointmentDate = DateOnly.FromDateTime(DateTime.Parse(e.Value.ToString()));
+        await UpdateAvailablePhotographers();
+    }
+
+    private async Task OnStartTimeChanged(ChangeEventArgs e)
+    {
+        if (TimeOnly.TryParse(e.Value.ToString(), out var time))
+        {
+            StartTime = time;
+            if (EndTime.HasValue && StartTime >= EndTime)
+            {
+                ErrorMessage = "Время начала должно быть раньше времени окончания.";
+                return;
+            }
+            await UpdateAvailablePhotographers();
+            ErrorMessage = string.Empty;
+        }
+    }
+
+    private async Task OnEndTimeChanged(ChangeEventArgs e)
+    {
+        if (TimeOnly.TryParse(e.Value.ToString(), out var time))
+        {
+            EndTime = time;
+            if (StartTime.HasValue && StartTime >= EndTime)
+            {
+                ErrorMessage = "Время начала должно быть раньше времени окончания.";
+                return;
+            }
+            await UpdateAvailablePhotographers();
+            ErrorMessage = string.Empty;
+        }
+    } 
+    private async Task OnServiceChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value.ToString(), out var serviceId))
+        {
+            SelectedServiceId = serviceId;
+
+            var selectedService = await DbContext.Services
+                .FirstOrDefaultAsync(s => s.Serviceid == SelectedServiceId);
+
+            IsMobileOrder = selectedService?.Name?.Equals("Выездная фотосесия", StringComparison.OrdinalIgnoreCase) == true;
+
+            if (!IsMobileOrder)
+            {
+                MobileOrderAddress = string.Empty;
+                MobileOrderDescription = string.Empty;
+            }
+        }
+    }
+    private async Task LoadShootingTypesAsync()
+    {
+        FilteredShootingTypes = await DbContext.Typeshootings.ToListAsync();
+    }
+
+}
+

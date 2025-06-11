@@ -1,0 +1,36 @@
+﻿@page "/"
+@using Microsoft.EntityFrameworkCore
+@using PhotoStudia_1.Models
+@inject PhotostudiaContext DbContext
+<section class="hero-section">
+    <div class="hero-overlay">
+        <div class="hero-content">
+            <h1>Создаём воспоминания,<br />которые останутся навсегда</h1>
+            <button class="cta-button" @onclick="() => ShowRequestForm = true">Записаться на фотосессию</button>
+            <p class="contact-phone">или позвоните нам: <a href="tel:+79999999999">+7 (999) 999 99 99</a></p>
+            <RequestModal Show="@ShowRequestForm" ShowChanged="@((val) => ShowRequestForm = val)" />
+        </div>
+    </div>
+</section>
+
+<section class="about">
+    <h2>О ФОТОЦЕНТРЕ</h2>
+    <div class="stats">
+        <div class="stat">
+            <strong>2005</strong>
+            <p>Работаем с<br />2005 года</p>
+        </div>
+        <div class="stat"> 
+            <strong>10+</strong>
+            <p>Профессиональных<br />фотографов</p>
+        </div>
+        <div class="stat">
+            <strong>100</strong>
+            <p>Довольных<br />клиентов ежегодно</p>
+        </div>
+    </div>
+</section>
+
+@code {
+    private bool ShowRequestForm = false;
+}

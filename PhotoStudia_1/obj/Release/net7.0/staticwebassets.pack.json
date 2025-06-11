@@ -1,0 +1,41 @@
+{
+  "Files": [
+    {
+      "Id": "C:\\Users\\oberu\\Desktop\\Диплом\\PhotoStudia_2\\PhotoStudia_1\\wwwroot\\css\\site.css",
+      "PackagePath": "staticwebassets\\css\\site.css"
+    },
+    {
+      "Id": "C:\\Users\\oberu\\Desktop\\Диплом\\PhotoStudia_2\\PhotoStudia_1\\wwwroot\\images\\model.png",
+      "PackagePath": "staticwebassets\\images\\model.png"
+    },
+    {
+      "Id": "C:\\Users\\oberu\\Desktop\\Диплом\\PhotoStudia_2\\PhotoStudia_1\\wwwroot\\js\\codeInput.js",
+      "PackagePath": "staticwebassets\\js\\codeInput.js"
+    },
+    {
+      "Id": "C:\\Users\\oberu\\Desktop\\Диплом\\PhotoStudia_2\\PhotoStudia_1\\wwwroot\\js\\ekb-districts.geojson",
+      "PackagePath": "staticwebassets\\js\\ekb-districts.geojson"
+    },
+    {
+      "Id": "C:\\Users\\oberu\\Desktop\\Диплом\\PhotoStudia_2\\PhotoStudia_1\\wwwroot\\js\\mapInterop.js",
+      "PackagePath": "staticwebassets\\js\\mapInterop.js"
+    },
+    {
+      "Id": "obj\\Release\\net7.0\\staticwebassets\\msbuild.PhotoStudia_1.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    },
+    {
+      "Id": "obj\\Release\\net7.0\\staticwebassets\\msbuild.build.PhotoStudia_1.props",
+      "PackagePath": "build\\PhotoStudia_1.props"
+    },
+    {
+      "Id": "obj\\Release\\net7.0\\staticwebassets\\msbuild.buildMultiTargeting.PhotoStudia_1.props",
+      "PackagePath": "buildMultiTargeting\\PhotoStudia_1.props"
+    },
+    {
+      "Id": "obj\\Release\\net7.0\\staticwebassets\\msbuild.buildTransitive.PhotoStudia_1.props",
+      "PackagePath": "buildTransitive\\PhotoStudia_1.props"
+    }
+  ],
+  "ElementsToRemove": []
+}

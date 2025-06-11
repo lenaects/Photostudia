@@ -1,0 +1,123 @@
+﻿@page "/"
+@using Microsoft.AspNetCore.Components.Web
+@namespace PhotoStudia_1.Pages
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <base href="/" />
+    <link href="css/site.css" rel="stylesheet" />
+    <component type="typeof(HeadOutlet)" render-mode="ServerPrerendered" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/@@turf/turf@6.5.0/turf.min.js"></script>
+    <script src="https://unpkg.com/@@urf/turf/turf.min.js"></script>
+    <!-- Подключаем твой JS с картой -->
+    <script src="js/mapService.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        function drawAdminCharts(photographers, services) {
+            const ctx1 = document.getElementById('photographerChart').getContext('2d');
+            const ctx2 = document.getElementById('serviceChart').getContext('2d');
+
+            if (window.photographerChart && typeof window.photographerChart.destroy === 'function') {
+                window.photographerChart.destroy();
+            }
+            if (window.serviceChart && typeof window.serviceChart.destroy === 'function') {
+                window.serviceChart.destroy();
+            }
+
+            window.photographerChart = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: photographers.map(p => `${p.name} (${p.rating}★)`),
+                    datasets: [
+                        {
+                            label: 'Заказы',
+                            data: photographers.map(p => p.orderCount),
+                            backgroundColor: '#5A8FD2'
+                        },
+                        {
+                            label: 'Часы',
+                            data: photographers.map(p => p.hoursWorked),
+                            backgroundColor: '#D26A5A'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Работа фотографов за месяц'
+                        },
+                        legend: { position: 'top' }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { stepSize: 1 }
+                        }
+                    }
+                }
+            });
+
+            window.serviceChart = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: services.map(s => s.serviceName),
+                    datasets: [
+                        {
+                            label: 'Количество заказов',
+                            data: services.map(s => s.orderCount),
+                            backgroundColor: '#3B82F6' // синий
+                        },
+                        {
+                            label: 'Часы проведения',
+                            data: services.map(s => s.hoursWorked),
+                            backgroundColor: '#A855F7' // фиолетовый
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Популярность услуг'
+                        },
+                        legend: { position: 'top' }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { stepSize: 1 }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+
+</head>
+<body>
+    <component type="typeof(App)" render-mode="ServerPrerendered" />
+
+    <div id="blazor-error-ui">
+        <environment include="Staging,Production">
+            An error has occurred. This application may no longer respond until reloaded.
+        </environment>
+        <environment include="Development">
+            An unhandled exception has occurred. See browser dev tools for details.
+        </environment>
+        <a href="" class="reload">Reload</a>
+        <a class="dismiss">🗙</a>
+    </div>
+
+    <script src="_framework/blazor.server.js"></script>
+
+</body>
+</html>

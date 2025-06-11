@@ -1,0 +1,527 @@
+﻿@page "/adminorders"
+@using Microsoft.EntityFrameworkCore
+@using PhotoStudia_1.Models
+@using PhotoStudia_1.Services
+@using PhotoStudia_1.Shared
+@inject PhotostudiaContext DbContext
+@inject NavigationManager NavigationManager
+@inject AdminState AdminState
+@using PhotoStudia_1.Pages.Admin
+
+
+<style>
+    .page-container {
+        font-family: Arial, sans-serif;
+        background: #FFF7EF;
+        padding: 40px;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .filters, .orders-section {
+        margin-bottom: 30px;
+    }
+
+        .filters label {
+            font-weight: bold;
+            margin-right: 8px;
+        }
+
+        .filters input,
+        .filters select,
+        .filters button {
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            margin-right: 10px;
+            font-size: 14px;
+        }
+
+        .filters button {
+            background-color: #d1a45f;
+            color: white;
+            border: none;
+        }
+
+    .orders-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+        .orders-table th, .orders-table td {
+            padding: 12px;
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+
+        .orders-table th {
+            background: #EEE1D2;
+            color: #333;
+        }
+
+    .status-completed {
+        background-color: #D0F499;
+    }
+
+    .status-pastdue {
+        background-color: #F4EF99;
+    }
+
+    .status-overdue {
+        background-color: #FFB6AD;
+    }
+
+    .status-normal {
+        background-color: #F8F8F8;
+    }
+
+    .action-btn {
+        padding: 8px 14px;
+        border: none;
+        border-radius: 6px;
+        margin: 2px;
+        cursor: pointer;
+        font-size: 13px;
+    }
+
+    .edit-btn {
+        background: #2ecc71;
+        color: white;
+    }
+
+    .delete-btn {
+        background: #e74c3c;
+        color: white;
+    }
+
+    .complete-btn {
+        background: #3498db;
+        color: white;
+    }
+
+    .no-orders {
+        padding: 20px;
+        text-align: center;
+        color: #777;
+    }
+
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.4);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
+    .modal {
+        background: #fff;
+        padding: 30px;
+        border-radius: 16px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        width: 100%;
+        max-width: 500px;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    .modal-title {
+        font-size: 22px;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 5px;
+        color: #333;
+    }
+
+    .modal-subtitle {
+        font-size: 14px;
+        text-align: center;
+        color: #666;
+        margin-bottom: 20px;
+    }
+
+    .modal input {
+        width: 100%;
+        padding: 12px;
+        margin-bottom: 14px;
+        border-radius: 10px;
+        border: 1px solid #ccc;
+        font-size: 15px;
+    }
+
+    .button-group {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+    }
+
+    .save-button {
+        background-color: #D26A5A;
+        color: white;
+        padding: 12px 20px;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+    }
+
+    .cancel-button {
+        background-color: #999;
+        color: white;
+        padding: 12px 20px;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+    }
+
+    .error-message {
+        color: #D02626;
+        text-align: center;
+        margin-top: 12px;
+        font-size: 15px;
+        font-weight: 500;
+    }
+</style>
+
+<div class="page-container">
+    <h1 style="text-align:center; margin-bottom: 30px;">Управление заказами</h1>
+
+    <div class="filters">
+        <label>Имя клиента:</label>
+        <input type="text" @oninput="e => UpdateSearchQuery(e.Value.ToString())" placeholder="Поиск..." />
+
+        <label>Месяц:</label>
+        <button @onclick="PreviousMonth" disabled="@IsPreviousDisabled">←</button>
+        <span>@CurrentMonth.ToString("MMMM yyyy")</span>
+        <button @onclick="NextMonth" disabled="@IsNextDisabled">→</button>
+
+        <label>Дата:</label>
+        <select @bind="SelectedDateFilter">
+            <option value="OrderDate">Оформление</option>
+            <option value="AppointmentDate">Проведение</option>
+            <option value="CompletionDate">Сдача</option>
+        </select>
+
+        <label>Статус:</label>
+        <select @onchange="e => OnOrderStatusChanged(e.Value.ToString())">
+            <option value="All">Все</option>
+            <option value="Upcoming">Предстоящие</option>
+            <option value="Completed">Выполненные</option>
+            <option value="PastDue">Недавние</option>
+            <option value="Overdue">Просроченные</option>
+        </select>
+
+        <button @onclick="NavigateToAddOrder">+ Новый заказ</button>
+    </div>
+
+    <div class="orders-section">
+        @if (FilteredOrders.Any())
+        {
+            <table class="orders-table">
+                <thead>
+                    <tr>
+                        <th>Фотограф</th>
+                        <th>Клиент</th>
+                        <th>Контакты</th>
+                        <th>Услуга</th>
+                        <th>Тип съёмки</th>
+                        <th>Адрес</th>
+                        <th>Время</th>
+                        <th>Цена</th>
+                        <th>Даты</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var order in FilteredOrders)
+                    {
+                        var type = order.Typeshooting?.Typeshooting1 ?? "-";
+                        var mobile = order.Mobileorders.FirstOrDefault();
+                        var location = mobile?.Eventaddress ?? order.Service?.StudioService?.Studio?.Address ?? "-";
+                        var price = order.Service?.MobileServices.FirstOrDefault()?.Price
+                        ?? order.Service?.StudioService?.Studio?.PricePerHour ?? 0;
+                        var total = price * (decimal)(order.Endtime - order.Starttime).TotalHours;
+
+                        <tr class="status-@GetOrderStatusClass(order)">
+                            <td>@order.Photographer?.Name</td>
+                            <td>@order.Client?.Name</td>
+                            <td>@order.Client?.Phone<br />@order.Client?.Email</td>
+                            <td>@order.Service?.Name</td>
+                            <td>@type</td>
+                            <td>@location</td>
+                            <td>@order.Starttime.ToString(@"hh\:mm") - @order.Endtime.ToString(@"hh\:mm")</td>
+                            <td>@total.ToString("0.00") ₽</td>
+                            <td>
+                                <div>@order.Orderdate.ToString("dd.MM.yyyy")</div>
+                                <div>@order.Appointmentdate.ToString("dd.MM.yyyy")</div>
+                                @if (order.Completedphotos.Any())
+                                {
+                                    <div>@order.Completedphotos.First().Completiondate.ToString("dd.MM.yyyy")</div>
+                                }
+                            </td>
+                            <td>
+                                <button class="action-btn edit-btn" @onclick="() => NavigateToEditOrder(order)">✏</button>
+                                <button class="action-btn delete-btn" @onclick="() => DeleteOrder(order)">🗑</button>
+                                @if (!order.Completedphotos.Any() && order.Appointmentdate < DateOnly.FromDateTime(DateTime.Now))
+                                {
+                                    <button class="action-btn complete-btn" @onclick="() => ShowCompleteOrderModal(order)">✔</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+        }
+        else
+        {
+            <div class="no-orders">Нет заказов для отображения</div>
+        }
+    </div>
+    @if (ShowOrderForm)
+    {
+        <PhotoStudia_1.Pages.Admin.OrderAdd @bind-Show="ShowOrderForm" OrderId="@EditingOrderId" />
+    }
+</div>
+@if (showCompleteOrderModal)
+{
+    <div class="modal-overlay">
+        <div class="modal">
+            <h3 class="modal-title">Сдача заказа</h3>
+            <p class="modal-subtitle">Заполните данные о сдаче</p>
+
+            <label>Путь к файлу:</label>
+            <input @bind="completedPhoto.Filepath" placeholder="Пример: /uploads/photo1.jpg" />
+
+            <label>Дата сдачи:</label>
+            <input type="date" @bind="completedPhoto.Completiondate" />
+
+            <label>Итоговая цена (₽):</label>
+            <input type="number" step="0.01" @bind="completedPhoto.Finalprice" />
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="error-message">@errorMessage</div>
+            }
+
+            <div class="button-group">
+                <button class="save-button" @onclick="SaveCompletedOrder">Сохранить</button>
+                <button class="cancel-button" @onclick="CancelCompleteOrder">Отмена</button>
+            </div>
+        </div>
+    </div>
+}
+@code {
+    private List<Order> Orders { get; set; } = new();
+    private List<Order> FilteredOrders { get; set; } = new();
+    private string SearchQuery { get; set; } = string.Empty;
+
+    private string SelectedOrderStatus { get; set; } = "All";
+    private DateOnly CurrentMonth { get; set; } = DateOnly.FromDateTime(DateTime.Now);
+    private DateOnly MinMonth { get; set; } = DateOnly.FromDateTime(DateTime.Now.AddMonths(-2));
+    private DateOnly MaxMonth { get; set; } = DateOnly.FromDateTime(DateTime.Now.AddMonths(2));
+    private bool IsPreviousDisabled => CurrentMonth <= MinMonth;
+    private bool IsNextDisabled => CurrentMonth >= MaxMonth;
+    private string SelectedDateFilter { get; set; } = "AppointmentDate";
+
+    private bool showCompleteOrderModal = false;
+
+    private bool ShowOrderForm = false;
+    private int? EditingOrderId = null;
+    [Parameter] public bool Show { get; set; }
+    [Parameter] public EventCallback<bool> ShowChanged { get; set; }
+    [Parameter] public int? OrderId { get; set; }
+
+    private Completedphoto completedPhoto = new Completedphoto
+        {
+            Completiondate = DateOnly.FromDateTime(DateTime.Now)
+        };
+    private Order selectedOrder;
+    private string errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadOrders();
+        ApplyFiltersAndSorting();
+    }
+
+    private async Task LoadOrders()
+    {
+        Orders = await DbContext.Orders
+            .Include(o => o.Client)
+            .Include(o => o.Photographer)
+            .Include(o => o.Service)
+                .ThenInclude(s => s.MobileServices)
+            .Include(o => o.Service)
+                .ThenInclude(s => s.StudioService)
+                    .ThenInclude(ss => ss.Studio)
+            .Include(o => o.Typeshooting)
+            .Include(o => o.Mobileorders)
+            .Include(o => o.Completedphotos)
+            .ToListAsync();
+    }
+
+    private void ApplyFiltersAndSorting()
+    {
+        var startOfMonth = new DateOnly(CurrentMonth.Year, CurrentMonth.Month, 1);
+        var endOfMonth = startOfMonth.AddMonths(1).AddDays(-1);
+
+        FilteredOrders = Orders
+            .Where(o =>
+            {
+                var dateToFilter = GetDateByFilter(o);
+                return dateToFilter.HasValue &&
+     DateOnly.FromDateTime(dateToFilter.Value) >= startOfMonth &&
+     DateOnly.FromDateTime(dateToFilter.Value) <= endOfMonth;
+            })
+            .Where(o =>
+            {
+                DateTime endDateTime = o.Appointmentdate.ToDateTime(o.Endtime);
+                return SelectedOrderStatus switch
+                {
+                    "Upcoming" => endDateTime > DateTime.Now && !o.Completedphotos.Any(),
+                    "Completed" => o.Completedphotos.Any(),
+                    "PastDue" => endDateTime < DateTime.Now && (DateTime.Now - endDateTime).TotalDays <= 7 && !o.Completedphotos.Any(),
+                    "Overdue" => endDateTime < DateTime.Now && (DateTime.Now - endDateTime).TotalDays > 7 && !o.Completedphotos.Any(),
+                    "All" => true,
+                    _ => true
+                };
+            })
+            .Where(o => string.IsNullOrEmpty(SearchQuery) || o.Client.Name.Contains(SearchQuery, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(o => GetDateByFilter(o).GetValueOrDefault(DateTime.MaxValue))
+            .ToList();
+
+        StateHasChanged();
+    }
+
+    private DateTime? GetDateByFilter(Order order)
+    {
+        return SelectedDateFilter switch
+        {
+            "OrderDate" => order.Orderdate.ToDateTime(order.Starttime),
+            "AppointmentDate" => order.Appointmentdate.ToDateTime(order.Starttime),
+            "CompletionDate" => order.Completedphotos.FirstOrDefault()?.Completiondate is DateOnly d
+                     ? d.ToDateTime(new TimeOnly(0, 0))
+                     : null,
+            _ => null
+        };
+    }
+
+    private void OnOrderStatusChanged(string status)
+    {
+        SelectedOrderStatus = status;
+        ApplyFiltersAndSorting();
+    }
+
+    private void UpdateSearchQuery(string query)
+    {
+        SearchQuery = query;
+        ApplyFiltersAndSorting();
+    }
+
+    private void PreviousMonth()
+    {
+        if (CurrentMonth > MinMonth)
+        {
+            CurrentMonth = CurrentMonth.AddMonths(-1);
+            ApplyFiltersAndSorting();
+        }
+    }
+
+    private void NextMonth()
+    {
+        if (CurrentMonth < MaxMonth)
+        {
+            CurrentMonth = CurrentMonth.AddMonths(1);
+            ApplyFiltersAndSorting();
+        }
+    }
+
+   
+
+    private string GetOrderStatusClass(Order order)
+    {
+        DateTime now = DateTime.Now;
+        DateTime endDateTime = order.Appointmentdate.ToDateTime(order.Endtime);
+
+        if (order.Completedphotos.Any()) return "completed";
+        if (endDateTime < now) return (now - endDateTime).TotalDays > 7 ? "overdue" : "pastdue";
+        return "normal";
+    }
+
+ 
+
+    private async Task DeleteOrder(Order order)
+    {
+        if (await DbContext.Orders.AnyAsync(o => o.Orderid == order.Orderid))
+        {
+            var mobileOrders = DbContext.Mobileorders.Where(m => m.Orderid == order.Orderid).ToList();
+            if (mobileOrders.Any()) DbContext.Mobileorders.RemoveRange(mobileOrders);
+
+            DbContext.Orders.Remove(order);
+            await DbContext.SaveChangesAsync();
+
+            Orders.Remove(order);
+            ApplyFiltersAndSorting();
+        }
+    }
+
+    private void ShowCompleteOrderModal(Order order)
+    {
+        selectedOrder = order;
+        completedPhoto = new Completedphoto
+            {
+                Orderid = order.Orderid,
+                Completiondate = DateOnly.FromDateTime(DateTime.Now),
+                Finalprice = CalculateFinalPrice(order)
+            };
+        showCompleteOrderModal = true;
+    }
+
+    private decimal CalculateFinalPrice(Order order)
+    {
+        var duration = (decimal)(order.Endtime - order.Starttime).TotalHours;
+        var mobilePrice = order.Service?.MobileServices.FirstOrDefault()?.Price;
+        var studioPrice = order.Service?.StudioService?.Studio?.PricePerHour;
+        var rate = mobilePrice ?? studioPrice ?? 0;
+        return rate * duration;
+    }
+
+    private void SaveCompletedOrder()
+    {
+        if (string.IsNullOrWhiteSpace(completedPhoto.Filepath))
+        {
+            errorMessage = "Введите путь к файлу.";
+            return;
+        }
+
+        DbContext.Completedphotos.Add(completedPhoto);
+        DbContext.SaveChanges();
+
+        selectedOrder.Completedphotos.Add(completedPhoto);
+        showCompleteOrderModal = false;
+    }
+
+    private void CancelCompleteOrder()
+    {
+        showCompleteOrderModal = false;
+    }
+    private void NavigateToAddOrder()
+    {
+        EditingOrderId = null;
+        ShowOrderForm = true;
+    }
+
+    private void NavigateToEditOrder(Order order)
+    {
+        EditingOrderId = order.Orderid;
+        ShowOrderForm = true;
+    }
+}

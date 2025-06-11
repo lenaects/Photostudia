@@ -1,0 +1,44 @@
+﻿@page "/photographer"
+@using PhotoStudia_1.Services
+@inject PhotographerState PhotographerState
+@inject AdminState AdminState
+
+<style>
+    body {
+        background-color: #FCEFE4;
+        font-family: "Segoe UI", sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+    }
+
+    .message-box {
+        background-color: #fff;
+        padding: 40px;
+        border-radius: 16px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+        text-align: center;
+    }
+
+        .message-box h2 {
+            font-size: 28px;
+            color: #333;
+        }
+</style>
+
+<div class="message-box">
+    @if (AdminState.IsLoggedIn)
+    {
+        <h2>Привет, админ!</h2>
+    }
+    else if (PhotographerState.IsLoggedIn)
+    {
+        <h2>Привет, фотограф!</h2>
+    }
+    else
+    {
+        <h2>Вы не авторизованы.</h2>
+    }
+</div>

@@ -1,0 +1,240 @@
+﻿@page "/photographer/statistics"
+@using Microsoft.EntityFrameworkCore
+@using PhotoStudia_1.Models
+@using System.Text.Json.Serialization
+@using PhotoStudia_1.Services
+@using MudBlazor
+@inject PhotostudiaContext DbContext
+@inject PhotographerState PhotographerState
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@using Microsoft.JSInterop;
+@using System.Globalization
+<style>
+    .statistic-container {
+        max-width: 1100px;
+        margin: 40px auto;
+        padding: 30px;
+        background: #fff7ef;
+        border-radius: 20px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+        font-family: Arial, sans-serif;
+    }
+
+    .stat-chart {
+        background: #fff;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 30px;
+    }
+
+    .summary-info {
+        font-size: 16px;
+        line-height: 1.8;
+        margin-top: 20px;
+        font-weight: 500;
+    }
+
+    .month-controls {
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+        margin: 20px 0;
+    }
+
+        .month-controls button {
+            background-color: #d1a45f;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+            .month-controls button:hover {
+                background-color: #bb924c;
+            }
+
+    .summary-grid {
+        display: flex;
+        justify-content: space-around;
+        gap: 20px;
+        margin-top: 30px;
+        flex-wrap: wrap;
+    }
+
+    .summary-card {
+        background: #fff;
+        border-radius: 16px;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+        padding: 25px 30px;
+        width: 280px;
+        text-align: center;
+        transition: transform 0.2s ease;
+    }
+
+        .summary-card:hover {
+            transform: translateY(-4px);
+        }
+
+    .summary-icon {
+        font-size: 28px;
+        margin-bottom: 10px;
+    }
+
+    .summary-title {
+        font-size: 15px;
+        color: #777;
+        margin-bottom: 8px;
+        font-weight: 600;
+    }
+
+    .summary-value {
+        font-size: 24px;
+        font-weight: bold;
+        color: #333;
+    }
+
+</style>
+
+<h2 class="order-title">Статистика за @CurrentMonth.ToString("MMMM yyyy")</h2>
+
+<div class="statistic-container">
+    <div class="order-title">Статистика за @CurrentMonth.ToString("MMMM yyyy")</div>
+
+    <div class="month-controls">
+        <button @onclick="PreviousMonth" disabled="@IsPreviousDisabled">← Предыдущий</button>
+        <span style="align-self: center; font-weight: bold; font-size: 18px;">@CurrentMonth.ToString("MMMM yyyy")</span>
+        <button @onclick="NextMonth" disabled="@IsNextDisabled">Следующий →</button>
+    </div>
+
+    <div class="stat-chart">
+        <canvas id="serviceChart" width="900" height="400"></canvas>
+    </div>
+
+    <div class="summary-grid">
+        <div class="summary-card">
+            <div class="summary-icon">📷</div>
+            <div class="summary-title">Всего заказов</div>
+            <div class="summary-value">@TotalOrders</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-icon">💰</div>
+            <div class="summary-title">Общий доход</div>
+            <div class="summary-value" style="color:#D26A5A">@TotalEarnings.ToString("N2") ₽</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-icon">⭐</div>
+            <div class="summary-title">Средний рейтинг</div>
+            <div class="summary-value" style="color:#e89b1c">@AverageRating.ToString("0.0")</div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private DateTime CurrentMonth = DateTime.Today;
+    private bool IsPreviousDisabled => CurrentMonth <= DateTime.Today.AddMonths(-3);
+    private bool IsNextDisabled => CurrentMonth >= DateTime.Today.AddMonths(3);
+
+    private List<ServiceStatModel> ServiceStats = new();
+    private int TotalOrders = 0;
+    private decimal TotalEarnings = 0;
+    private double AverageRating = 0;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadStatisticsAsync();
+            await JSRuntime.InvokeVoidAsync("drawServiceChart", ServiceStats);
+        }
+    }
+
+    private async Task LoadStatisticsAsync()
+    {
+        var start = new DateOnly(CurrentMonth.Year, CurrentMonth.Month, 1);
+        var end = start.AddMonths(1).AddDays(-1);
+
+        var orders = await DbContext.Orders
+            .Where(o => o.Photographerid == PhotographerState.PhotographerId
+                     && o.Appointmentdate >= start
+                     && o.Appointmentdate <= end)
+            .Include(o => o.Service)
+            .Include(o => o.Mobileorders)
+            .ToListAsync();
+
+        var allServices = await DbContext.Services.ToListAsync();
+
+        ServiceStats = allServices.Select(service =>
+        {
+            var relatedOrders = orders.Where(o => o.Serviceid == service.Serviceid).ToList();
+            int count = relatedOrders.Count;
+            int hours = (int)Math.Floor(relatedOrders.Sum(o => (o.Endtime - o.Starttime).TotalHours));
+            decimal earnings = relatedOrders.Sum(o =>
+            {
+                bool isMobile = o.Mobileorders.Any();
+                var mobilePrice = DbContext.MobileServices.FirstOrDefault(m => m.ServiceId == o.Serviceid)?.Price ?? 0;
+                var studioPrice = DbContext.StudioServices
+                    .Include(s => s.Studio)
+                    .FirstOrDefault(s => s.ServiceId == o.Serviceid)?.Studio?.PricePerHour ?? 0;
+
+                decimal pricePerHour = isMobile ? mobilePrice : studioPrice;
+                return pricePerHour * (decimal)(o.Endtime - o.Starttime).TotalHours * 0.6m;
+            });
+
+            return new ServiceStatModel
+                {
+                    ServiceName = service.Name,
+                    OrderCount = count,
+                    HoursSpent = hours,
+                    Earnings = earnings
+                };
+        }).ToList();
+
+        TotalOrders = orders.Count;
+        TotalEarnings = ServiceStats.Sum(s => s.Earnings);
+
+        var feedbacks = await DbContext.Feedbacks
+            .Where(f => f.Profilphotographer.Pfotographerid == PhotographerState.PhotographerId)
+            .ToListAsync();
+
+        AverageRating = feedbacks.Any() ? feedbacks.Average(f => f.Rating) : 0;
+    }
+
+    private async Task PreviousMonth()
+    {
+        if (!IsPreviousDisabled)
+        {
+            CurrentMonth = CurrentMonth.AddMonths(-1);
+            await LoadStatisticsAsync();
+            await JSRuntime.InvokeVoidAsync("drawServiceChart", ServiceStats);
+        }
+    }
+
+    private async Task NextMonth()
+    {
+        if (!IsNextDisabled)
+        {
+            CurrentMonth = CurrentMonth.AddMonths(1);
+            await LoadStatisticsAsync();
+            await JSRuntime.InvokeVoidAsync("drawServiceChart", ServiceStats);
+        }
+    }
+
+    public class ServiceStatModel
+    {
+
+        public string ServiceName { get; set; } = "";
+
+
+        public int OrderCount { get; set; }
+
+        public int HoursSpent { get; set; } // целое число
+
+
+        public decimal Earnings { get; set; } // для вывода на колонке
+    }
+}

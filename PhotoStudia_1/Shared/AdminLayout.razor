@@ -1,0 +1,30 @@
+﻿@using PhotoStudia_1.Services
+@inherits LayoutComponentBase
+@inject AdminState AdminState
+@inject NavigationManager NavigationManager
+
+@if (AdminState.IsLoggedIn)
+{
+    <div style="display: flex;">
+        <!-- Боковая панель -->
+        <nav style="width: 200px; background-color: #333; color: white; height: 100vh; padding: 20px;">
+            <h3>Меню</h3>
+            <ul style="list-style: none; padding: 0;">
+                <li><a href="/" style="color: white; text-decoration: none;">Главная</a></li>
+                <li><a href="/adminorders" style="color: white; text-decoration: none;">Заказы</a></li>
+                <li><a href="/adminphotographerSchedule" style="color: white; text-decoration: none;">Фотографы</a></li>
+                <li><a href="/admin-statistics" style="color: white; text-decoration: none;">Статистика</a></li>
+                <li><a href="/logout" style="color: white; text-decoration: none;">Выйти</a></li>
+            </ul>
+        </nav>
+
+        <!-- Основное содержимое -->
+        <div style="flex: 1; padding: 20px;">
+            @Body
+        </div>
+    </div>
+}
+else
+{
+    @Body
+}

@@ -1,0 +1,252 @@
+﻿@page "/registration"
+ @using Microsoft.EntityFrameworkCore
+@using System.Text.RegularExpressions
+@using PhotoStudia_1.Models
+@using PhotoStudia_1.Services
+@using System.Net.Mail
+@using MailKit.Net.Smtp;
+@using MimeKit;
+@using Microsoft.AspNetCore.Components.Web
+@inject PhotostudiaContext DbContext
+@inject NavigationManager NavigationManager
+@inject IConfiguration Configuration
+<style>
+    body {
+        background-color: #FCEFE4;
+        font-family: "Segoe UI", sans-serif;
+        margin: 0;
+    }
+
+    .auth-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        padding: 20px;
+    }
+
+    .auth-form {
+        background: #fff;
+        padding: 40px;
+        border-radius: 16px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        max-width: 480px;
+    }
+
+        .auth-form h1 {
+            font-size: 28px;
+            margin-bottom: 24px;
+            color: #333;
+            text-align: center;
+        }
+
+        .auth-form input {
+            width: 100%;
+            padding: 14px;
+            margin-bottom: 12px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            font-size: 15px;
+            background: #fff;
+            box-sizing: border-box;
+        }
+
+        .auth-form .row {
+            display: flex;
+            gap: 10px;
+        }
+
+            .auth-form .row input {
+                flex: 1;
+            }
+
+        .auth-form button {
+            width: 100%;
+            padding: 14px;
+            background-color: #D26A5A;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+            .auth-form button:hover {
+                background-color: #b65949;
+            }
+    .error-message, .field-error {
+        color: red;
+        font-size: 13px;
+        margin-bottom: 8px;
+    }
+
+    .nav-text {
+        text-align: center;
+        margin-top: 20px;
+        font-size: 14px;
+    }
+
+        .nav-text a {
+            color: #D26A5A;
+            text-decoration: none;
+            font-weight: 500;
+        }
+</style>
+
+<div class="auth-container">
+    <div class="auth-form">
+        <h1>@(ShowCodeInput ? "Подтверждение почты" : "Создание аккаунта")</h1>
+
+        @if (!ShowCodeInput)
+        {
+            <form @onsubmit="HandleRegister">
+                <input @bind="Name" placeholder="Имя" />
+                <span class="field-error">@ErrorName</span>
+
+                <input @bind="Phone" placeholder="Телефон" />
+                <span class="field-error">@ErrorPhone</span>
+
+                <input @bind="Email" placeholder="Email" />
+                <span class="field-error">@ErrorEmail</span>
+
+                <input @bind="NewUserLogin" placeholder="Логин" />
+                <span class="field-error">@ErrorLogin</span>
+
+                <div class="row">
+                    <input @bind="Password" type="password" placeholder="Пароль" />
+                    <input @bind="ConfirmPassword" type="password" placeholder="Подтверждение пароля" />
+                </div>
+                <span class="field-error">@ErrorPassword</span>
+                <span class="field-error">@ErrorConfirmPassword</span>
+
+                <button type="submit">Отправить код</button>
+            </form>
+        }
+        else
+        {
+            <input value="@EnteredCode"
+                   placeholder="Введите код из письма"
+                   @oninput="OnCodeInput" />
+            <span class="field-error">@ErrorCode</span>
+            <button @onclick="VerifyCode">Подтвердить</button>
+        }
+
+        <p class="error-message">@ErrorMessage</p>
+        <p class="nav-text">Уже есть аккаунт? <a href="/login">Войти</a></p>
+    </div>
+</div>
+
+
+@code {
+    private string Name { get; set; } = string.Empty;
+    private string Phone { get; set; } = string.Empty;
+    private string Email { get; set; } = string.Empty;
+    private string NewUserLogin { get; set; } = string.Empty;
+    private string Password { get; set; } = string.Empty;
+    private string ConfirmPassword { get; set; } = string.Empty;
+
+    private string GeneratedCode { get; set; } = string.Empty;
+    private bool ShowCodeInput = false;
+    private string EnteredCode { get; set; } = string.Empty;
+    private string ErrorMessage { get; set; } = string.Empty;
+    private string ErrorName { get; set; } = string.Empty;
+    private string ErrorPhone { get; set; } = string.Empty;
+    private string ErrorEmail { get; set; } = string.Empty;
+    private string ErrorLogin { get; set; } = string.Empty;
+    private string ErrorPassword { get; set; } = string.Empty;
+    private string ErrorConfirmPassword { get; set; } = string.Empty;
+    private string ErrorCode { get; set; } = string.Empty;
+
+    private async Task HandleRegister()
+    {
+        ErrorName = ErrorPhone = ErrorEmail = ErrorLogin = ErrorPassword = ErrorConfirmPassword = ErrorMessage = string.Empty;
+        bool isValid = true;
+
+        if (string.IsNullOrWhiteSpace(Name)) { ErrorName = "Введите ваше ФИО."; isValid = false; }
+        if (!Regex.IsMatch(Phone, @"^(\+7|8)\d{10}$")) { ErrorPhone = "Телефон должен быть в формате +79999999999 или 89999999999."; isValid = false; }
+        if (string.IsNullOrWhiteSpace(Email) || !Regex.IsMatch(Email, @"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]{2,}$")) { ErrorEmail = "Введите корректный Email."; isValid = false; }
+        if (!Regex.IsMatch(NewUserLogin, @"^[a-zA-Z0-9]+$")) { ErrorLogin = "Логин должен содержать только латинские буквы и цифры."; isValid = false; }
+        if (!Regex.IsMatch(Password, @"^(?=.*[A-Z])(?=.*\d)(?=.*[#@$!%*?&])[A-Za-z\d#@$!%*?&]{8,}$") || Password.Contains(" ")) { ErrorPassword = "Пароль должен быть не менее 8 символов, с заглавной буквой, спецсимволом и без пробелов."; isValid = false; }
+        if (Password != ConfirmPassword) { ErrorConfirmPassword = "Пароли не совпадают."; isValid = false; }
+
+        if (!isValid) return;
+
+        if (await DbContext.Photographers.AnyAsync(p => p.Login == NewUserLogin))
+        {
+            ErrorLogin = "Логин уже используется.";
+            return;
+        }
+        GeneratedCode = new Random().Next(100000, 999999).ToString();
+
+        try
+        {
+
+            Console.WriteLine("SMTP логин: " + Configuration["EmailSettings:UserName"]);
+            Console.WriteLine("SMTP пароль длина: " + Configuration["EmailSettings:Password"]?.Length);
+
+            var emailMessage = new MimeMessage();
+            emailMessage.From.Add(new MailboxAddress("Photo Studio", Configuration["EmailSettings:UserName"]));
+            emailMessage.To.Add(MailboxAddress.Parse(Email));
+            emailMessage.Subject = "Код подтверждения регистрации";
+            emailMessage.Body = new TextPart("plain")
+                {
+                    Text = $"Ваш код подтверждения: {GeneratedCode}"
+                };
+
+            using var smtp = new MailKit.Net.Smtp.SmtpClient();
+            await smtp.ConnectAsync("smtp.yandex.ru", 465, MailKit.Security.SecureSocketOptions.SslOnConnect);
+            await smtp.AuthenticateAsync("e.oberiuhtina@yandex.ru", "vxieuihpxhfydosi");
+            await smtp.SendAsync(emailMessage);
+            await smtp.DisconnectAsync(true);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = "Ошибка при отправке письма: " + ex.Message;
+            return;
+        }
+
+        ShowCodeInput = true;
+    }
+
+    private async Task VerifyCode()
+    {
+        ErrorCode = string.Empty;
+        var combinedCode = EnteredCode.Trim(); 
+        Console.WriteLine($"Ожидалось: {GeneratedCode}, Введено: {combinedCode}");
+        if (combinedCode != GeneratedCode)
+        {
+            ErrorCode = "Код не верен. Попробуйте снова.";
+            return;
+        }
+     
+
+        var hashedPassword = PasswordHasher.HashPassword(Password, out string salt);
+
+        var newPhotographer = new Photographer
+            {
+                Name = Name,
+                Phone = Phone,
+                Email = Email,
+                Login = NewUserLogin,
+                Password = hashedPassword,
+                Salt = salt
+            };
+
+        DbContext.Photographers.Add(newPhotographer);
+        await DbContext.SaveChangesAsync();
+
+        ErrorMessage = "Почта подтверждена! Успешная регистрация.";
+        StateHasChanged();
+        NavigationManager.NavigateTo("/login");
+    }
+   
+    private void OnCodeInput(ChangeEventArgs e)
+    {
+        var input = e.Value?.ToString() ?? "";
+
+        // Удаляем всё, кроме цифр
+        EnteredCode = new string(input.Where(char.IsDigit).ToArray());
+    }
+}

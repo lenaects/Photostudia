@@ -1,0 +1,249 @@
+﻿@page "/photographer/orders"
+@using Microsoft.EntityFrameworkCore
+@using PhotoStudia_1.Models
+@using PhotoStudia_1.Services
+@inject PhotostudiaContext DbContext
+@inject PhotographerState PhotographerState
+@inject NavigationManager NavigationManager
+
+<style>
+    .order-container {
+        max-width: 1100px;
+        margin: 40px auto;
+        padding: 30px;
+        background: #fff7ef;
+        border-radius: 20px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+        font-family: Arial, sans-serif;
+    }
+
+    .order-title {
+        font-size: 32px;
+        font-weight: bold;
+        margin-bottom: 20px;
+        color: #2f2f2f;
+        text-align: center;
+    }
+
+    .month-controls {
+        display: flex;
+        justify-content: center;
+        gap: 16px;
+        margin-bottom: 30px;
+    }
+
+        .month-controls button {
+            padding: 10px 16px;
+            background-color: #D26A5A;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+            .month-controls button:hover {
+                background-color: #bb5348;
+            }
+
+    .order-card {
+        background: #fff;
+        border-radius: 16px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        padding: 20px 30px;
+        margin-bottom: 20px;
+    }
+
+        .order-card h3 {
+            font-size: 20px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .order-card p {
+            margin: 6px 0;
+            font-size: 15px;
+            color: #444;
+        }
+
+            .order-card p b {
+                color: #222;
+            }
+</style>
+
+<div class="order-container">
+    <div class="order-title">Мои заказы</div>
+
+    <div class="month-controls">
+        <button @onclick="PreviousMonth" disabled="@IsPreviousDisabled">← Предыдущий</button>
+        <span style="align-self: center; font-weight: bold; font-size: 18px;">@CurrentMonth.ToString("MMMM yyyy")</span>
+        <button @onclick="NextMonth" disabled="@IsNextDisabled">Следующий →</button>
+    </div>
+    <div class="filters" style="display:flex; gap:20px; align-items:center; margin-bottom:20px;">
+        <label style="font-weight:600;">Статус:</label>
+        <select @onchange="OnStatusChanged" style="padding:8px 12px; border-radius:8px; border:1px solid #ccc;">
+            <option value="All">Все</option>
+            <option value="Upcoming">Предстоящие</option>
+            <option value="Completed">Выполненные</option>
+        </select>
+    </div>
+    @if (!FilteredOrders.Any())
+    {
+        <p>В этом месяце заказов нет.</p>
+    }
+    else
+    {
+        @foreach (var item in FilteredOrders)
+        {
+            <div class="order-card">
+                <h3>@item.Service?.Name</h3>
+                <p><b>Клиент:</b> @item.Client?.Name (@item.Client?.Phone)</p>
+                <p><b>Дата съёмки:</b> @item.Appointmentdate.ToString("dd.MM.yyyy")</p>
+                <p><b>Время:</b> @item.Starttime - @item.Endtime</p>
+                <p><b>Тип:</b> @(item.IsMobile ? "Выездной" : "Студийный")</p>
+                <p><b>Адрес:</b> @item.Location</p>
+                <p><b>Стоимость:</b> @item.TotalPrice.ToString("N2") ₽</p>
+                <p><b>Ваш доход:</b> @item.Earnings.ToString("N2") ₽</p>
+                @if (item.CompletedDate.HasValue)
+                {
+                    <p style="color: green;"><b>Сдан:</b> @item.CompletedDate.Value.ToString("dd.MM.yyyy")</p>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private DateTime CurrentMonth = DateTime.Today;
+    private DateTime MinMonth = DateTime.Today.AddMonths(-3);
+    private DateTime MaxMonth = DateTime.Today.AddMonths(3);
+    private List<PhotographerOrderViewModel> AllOrders = new();
+    private List<PhotographerOrderViewModel> FilteredOrders = new();
+
+    private bool IsPreviousDisabled => CurrentMonth <= MinMonth;
+    private bool IsNextDisabled => CurrentMonth >= MaxMonth;
+
+    private string SelectedStatus = "All";
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (PhotographerState.PhotographerId == 0)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+
+        await LoadOrdersAsync();
+    }
+
+    private async Task LoadOrdersAsync()
+    {
+        var orders = await DbContext.Orders
+            .Where(o => o.Photographerid == PhotographerState.PhotographerId &&
+                        o.Appointmentdate.Year == CurrentMonth.Year &&
+                        o.Appointmentdate.Month == CurrentMonth.Month)
+            .Include(o => o.Client)
+            .Include(o => o.Service)
+            .Include(o => o.Mobileorders)
+            .ToListAsync();
+
+        var serviceIds = orders.Select(o => o.Serviceid).Distinct().ToList();
+        var studioData = await DbContext.StudioServices
+            .Include(ss => ss.Studio)
+            .Where(ss => serviceIds.Contains(ss.ServiceId!.Value))
+            .ToDictionaryAsync(ss => ss.ServiceId!.Value);
+
+        var mobileData = await DbContext.MobileServices
+            .Where(ms => serviceIds.Contains(ms.ServiceId!.Value))
+            .ToDictionaryAsync(ms => ms.ServiceId!.Value);
+
+        var completed = await DbContext.Completedphotos
+            .ToDictionaryAsync(c => c.Orderid);
+
+        AllOrders = orders.Select(order =>
+     {
+     var isMobile = order.Mobileorders.Any();
+     var durationHours = (order.Endtime - order.Starttime).TotalHours;
+
+     decimal price = isMobile && mobileData.TryGetValue(order.Serviceid, out var mobile)
+         ? mobile.Price ?? 0
+         : studioData.TryGetValue(order.Serviceid, out var studio) ? studio.Studio?.PricePerHour ?? 0 : 0;
+
+     string location = isMobile
+         ? order.Mobileorders.First().Eventaddress ?? "-"
+         : studioData.TryGetValue(order.Serviceid, out var studioLoc) ? studioLoc.Studio?.Address ?? "-" : "-";
+
+     return new PhotographerOrderViewModel
+         {
+             OrderId = order.Orderid,
+             Client = order.Client,
+             Service = order.Service,
+             Appointmentdate = order.Appointmentdate,
+             Starttime = order.Starttime,
+             Endtime = order.Endtime,
+             IsMobile = isMobile,
+             TotalPrice = price * (decimal)durationHours,
+             Earnings = price * (decimal)durationHours * 0.6m,
+             Location = location,
+             CompletedDate = completed.TryGetValue(order.Orderid, out var cp) ? cp.Completiondate : null
+         };
+     }).OrderBy(o => o.Appointmentdate).ToList();
+
+        FilterOrders();
+    }
+
+    private async Task PreviousMonth()
+    {
+        if (!IsPreviousDisabled)
+        {
+            CurrentMonth = CurrentMonth.AddMonths(-1);
+            await LoadOrdersAsync();
+        }
+    }
+
+    private async Task NextMonth()
+    {
+        if (!IsNextDisabled)
+        {
+            CurrentMonth = CurrentMonth.AddMonths(1);
+            await LoadOrdersAsync();
+        }
+    }
+
+    public class PhotographerOrderViewModel
+    {
+        public int OrderId { get; set; }
+        public Client? Client { get; set; }
+        public Service? Service { get; set; }
+        public DateOnly Appointmentdate { get; set; }
+        public TimeOnly Starttime { get; set; }
+        public TimeOnly Endtime { get; set; }
+        public bool IsMobile { get; set; }
+        public decimal TotalPrice { get; set; }
+        public decimal Earnings { get; set; }
+        public string Location { get; set; } = "-";
+        public DateOnly? CompletedDate { get; set; }
+    }
+    private void OnStatusChanged(ChangeEventArgs e)
+    {
+        SelectedStatus = e.Value?.ToString() ?? "All";
+        FilterOrders();
+    }
+    private void FilterOrders()
+    {
+        var now = DateTime.Now;
+
+        FilteredOrders = AllOrders.Where(order =>
+        {
+            var endDateTime = order.Appointmentdate.ToDateTime(order.Endtime);
+            return SelectedStatus switch
+            {
+                "Upcoming" => endDateTime > now,
+                "Completed" => endDateTime <= now,
+                _ => true
+            };
+        }).ToList();
+    }
+}

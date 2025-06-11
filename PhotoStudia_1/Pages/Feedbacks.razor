@@ -1,0 +1,158 @@
+﻿@page "/feedback/{PhotographerId:int}"
+@using PhotoStudia_1.Models
+@using Microsoft.EntityFrameworkCore
+@inject PhotostudiaContext DbContext
+@inject NavigationManager NavigationManager
+
+<style>
+    .feedback-container {
+        background-color: #FCEFE4;
+        min-height: 100vh;
+        padding: 40px 20px;
+        font-family: "Segoe UI", sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+    }
+
+    .feedback-form {
+        background: #fff;
+        padding: 30px;
+        border-radius: 16px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        max-width: 500px;
+    }
+
+        .feedback-form h2 {
+            text-align: center;
+            margin-bottom: 24px;
+            font-size: 24px;
+            color: #333;
+        }
+
+        .feedback-form input,
+        .feedback-form textarea {
+            width: 100%;
+            padding: 14px;
+            margin-bottom: 16px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            font-size: 15px;
+            background: #fff;
+            box-sizing: border-box;
+        }
+
+    .star-rating {
+        display: flex;
+        font-size: 28px;
+        justify-content: center;
+        margin-bottom: 16px;
+    }
+
+        .star-rating span {
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+    .submit-button {
+        width: 100%;
+        padding: 14px;
+        background-color: #D26A5A;
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-size: 16px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+
+        .submit-button:hover {
+            background-color: #b65949;
+        }
+
+    .feedback-message {
+        text-align: center;
+        margin-top: 10px;
+        font-size: 14px;
+        color: green;
+    }
+</style>
+
+<div class="feedback-container">
+    <div class="feedback-form">
+        <h2>Оставьте отзыв</h2>
+        <input placeholder="Ваше имя" @bind="NewFeedback.Nameclient" />
+        <input placeholder="Email" @bind="NewFeedback.Email" />
+        <textarea placeholder="Ваш отзыв" @bind="NewFeedback.Feedback1" rows="5"></textarea>
+
+        <div class="star-rating">
+            @for (int i = 1; i <= 5; i++)
+            {
+                int current = i;
+                <span @onclick="() => SetRating(current)"
+                      style="color:@(current <= (HoveredRating > 0 ? HoveredRating : Rating) ? "#FFD700" : "#ccc")"
+                      @onmouseover="() => HoveredRating = current"
+                      @onmouseout="() => HoveredRating = 0">
+                    ★
+                </span>
+            }
+        </div>
+
+        <button class="submit-button" @onclick="SubmitFeedback">Отправить</button>
+
+        @if (!string.IsNullOrEmpty(FeedbackMessage))
+        {
+            <p class="feedback-message">@FeedbackMessage</p>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public int PhotographerId { get; set; }
+
+    private Feedback NewFeedback = new();
+    private string FeedbackMessage = "";
+    private int Rating = 5;
+    private int HoveredRating = 0;
+    private Profilphotographer? Profile;
+
+    protected override async Task OnInitializedAsync()
+    {
+        NewFeedback.Rating = 5;
+        Profile = await DbContext.Profilphotographers.FirstOrDefaultAsync(p => p.Pfotographerid == PhotographerId);
+    }
+
+    private async Task SubmitFeedback()
+    {
+        if (Profile == null)
+        {
+            FeedbackMessage = "Фотограф не найден.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(NewFeedback.Nameclient) ||
+            string.IsNullOrWhiteSpace(NewFeedback.Email) ||
+            string.IsNullOrWhiteSpace(NewFeedback.Feedback1))
+        {
+            FeedbackMessage = "Пожалуйста, заполните все поля.";
+            return;
+        }
+
+        NewFeedback.Rating = Rating;
+        NewFeedback.Profilphotographerid = Profile.Id;
+
+        DbContext.Feedbacks.Add(NewFeedback);
+        await DbContext.SaveChangesAsync();
+
+        FeedbackMessage = "Спасибо за ваш отзыв!";
+        NewFeedback = new Feedback();
+        Rating = 5;
+        HoveredRating = 0;
+    }
+
+    private void SetRating(int rating)
+    {
+        Rating = rating;
+    }
+}

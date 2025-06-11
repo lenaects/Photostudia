@@ -1,0 +1,307 @@
+﻿@page "/workschedule"
+ @using Microsoft.EntityFrameworkCore
+@using PhotoStudia_1.Models
+@using PhotoStudia_1.Services
+@inject PhotostudiaContext DbContext
+@inject PhotographerState PhotographerState
+@inject NavigationManager NavigationManager
+
+
+<style>
+    .schedule-container {
+        width: 1200px;
+        margin: 40px auto;
+        background: #fff;
+        padding: 30px;
+        border-radius: 20px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    }
+
+    .schedule-title {
+        font-size: 32px;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 30px;
+        color: #2f2f2f;
+    }
+
+    .schedule-controls {
+        display: flex;
+        justify-content: center;
+        gap: 16px;
+        margin-bottom: 20px;
+    }
+
+        .schedule-controls button {
+            padding: 10px 16px;
+            background-color: #D26A5A;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+            .schedule-controls button:hover {
+                background-color: #bb5348;
+            }
+
+    .schedule-table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: center;
+        font-size: 14px;
+        table-layout: fixed;
+    }
+
+        .schedule-table th,
+        .schedule-table td {
+            border: 1px solid #e2e2e2;
+            padding: 10px;
+        }
+
+        .schedule-table th {
+            background-color: #FCEFE4;
+            color: #444;
+            font-weight: 600;
+        }
+
+        .schedule-table td {
+            background-color: #fff;
+        }
+
+        .schedule-table .working-hour {
+            background-color: #d9f9dc;
+        }
+
+        .schedule-table .order-hour {
+            background-color: #ffe0e0;
+            color: #a30000;
+            font-weight: bold;
+        }
+
+        .schedule-table .time-col {
+            font-weight: 600;
+            background-color: #fafafa;
+            width: 60px;
+        }
+</style>
+
+<div class="schedule-container">
+    <div class="schedule-title">Ваше расписание: @CurrentMonth.ToString("MMMM yyyy")</div>
+ 
+    <div class="schedule-controls">
+        @if (!IsEditing)
+        {
+            <button @onclick="ToggleEditMode">Редактировать</button>
+        }
+        else
+        {
+            <button @onclick="SaveSchedule" style="background:#5cb85c;">Сохранить</button>
+            <button @onclick="ToggleEditMode" style="background:#ccc;">Отменить</button>
+        }
+    </div>
+
+    <div class="schedule-controls">
+        <button @onclick="PreviousMonth" disabled="@IsPreviousDisabled">← Предыдущий</button>
+        <button @onclick="NextMonth" disabled="@IsNextDisabled">Следующий →</button>
+    </div>
+
+    <table class="schedule-table">
+        <thead>
+            <tr>
+                <th class="time-col">Время</th>
+                @foreach (var day in DaysInMonth)
+                {
+                    <th>@day.Day</th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @for (int hour = 9; hour < 21; hour++)
+            {
+                <tr>
+                    <td class="time-col">@($"{hour}:00 - {hour + 1}:00")</td>
+                    @foreach (var day in DaysInMonth)
+                    {
+                        var dateOnlyDay = DateOnly.FromDateTime(day);
+                        var isWorking = Schedule.Any(s => s.Date == dateOnlyDay && hour >= s.Starttime.TotalHours && hour < s.Endtime.TotalHours);
+                        var hasOrder = Orders.Any(o => o.Appointmentdate == dateOnlyDay && hour >= o.Starttime.Hour && hour < o.Endtime.Hour);
+                        var key = (dateOnlyDay, hour);
+
+                        var cellColor = GetCellColor(day, hour);
+                        var cursor = IsCellClickable(day, hour) && IsEditing ? "pointer" : "not-allowed";
+                        var opacity = IsCellClickable(day, hour) ? "1" : "0.4";
+
+                        <td @onclick="() => CellClicked(day, hour)"
+                            style="background-color:@cellColor; cursor:@cursor; opacity:@opacity;">
+                            <div style="height:20px;"></div>
+                        </td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+
+  
+</div>
+
+@code {
+    private string PhotographerName { get; set; } = string.Empty;
+    private List<DateTime> DaysInMonth { get; set; } = new();
+    private List<Photographerschedule> Schedule { get; set; } = new();
+    private DateTime CurrentMonth { get; set; } = DateTime.Now;
+    private DateTime MinMonth { get; set; } = DateTime.Now.AddMonths(-2);
+    private DateTime MaxMonth { get; set; } = DateTime.Now.AddMonths(2);
+    private List<Order> Orders { get; set; } = new();
+
+    private bool IsPreviousDisabled => CurrentMonth <= MinMonth;
+    private bool IsNextDisabled => CurrentMonth >= MaxMonth;
+    private bool IsEditing { get; set; } = false;
+    private HashSet<(DateOnly Date, int Hour)> SelectedCells = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        Console.WriteLine($"Photographer ID: {PhotographerState.PhotographerId}");
+        if (PhotographerState.PhotographerId == 0)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+
+        await LoadScheduleData();
+    }
+
+    private async Task LoadScheduleData()
+    {
+        var photographer = await DbContext.Photographers.FindAsync(PhotographerState.PhotographerId);
+        if (photographer != null)
+        {
+            PhotographerName = photographer.Name;
+
+            var startOfMonth = new DateOnly(CurrentMonth.Year, CurrentMonth.Month, 1);
+            var endOfMonth = startOfMonth.AddMonths(1).AddDays(-1);
+
+            Schedule = await DbContext.Photographerschedules
+                .Where(s => s.Photographerid == PhotographerState.PhotographerId &&
+                            s.Date >= startOfMonth &&
+                            s.Date <= endOfMonth)
+                .ToListAsync();
+
+            Console.WriteLine($"📅 Загружено расписаний: {Schedule.Count} на {CurrentMonth:MMMM yyyy}");
+
+           Orders = await DbContext.Orders
+    .Where(o => o.Photographerid == PhotographerState.PhotographerId &&
+                o.Appointmentdate >= startOfMonth &&
+                o.Appointmentdate <= endOfMonth)
+    .ToListAsync();
+
+            DaysInMonth = Enumerable.Range(1, DateTime.DaysInMonth(CurrentMonth.Year, CurrentMonth.Month))
+                .Select(day => new DateTime(CurrentMonth.Year, CurrentMonth.Month, day))
+                .ToList();
+        }
+    }
+
+    private async Task PreviousMonth()
+    {
+        if (CurrentMonth > MinMonth)
+        {
+            CurrentMonth = CurrentMonth.AddMonths(-1);
+            await LoadScheduleData();
+        }
+    }
+
+    private async Task NextMonth()
+    {
+        if (CurrentMonth < MaxMonth)
+        {
+            CurrentMonth = CurrentMonth.AddMonths(1);
+            await LoadScheduleData();
+        }
+    }
+
+    private void ToggleEditMode() => IsEditing = !IsEditing;
+
+    private void ToggleCellSelection(DateTime day, int hour)
+    {
+        var key = (DateOnly.FromDateTime(day), hour);
+
+        if (SelectedCells.Contains(key))
+            SelectedCells.Remove(key);
+        else
+            SelectedCells.Add(key);
+
+        StateHasChanged();
+    }
+
+    private async Task SaveSchedule()
+    {
+        var grouped = SelectedCells
+            .Where(c => c.Hour >= 9 && c.Hour < 21)
+            .GroupBy(c => c.Date)
+            .SelectMany(g =>
+            {
+                var hours = g.Select(x => x.Hour).OrderBy(x => x).ToList();
+                var result = new List<(int Start, int End)>();
+
+                int? start = null;
+                for (int i = 0; i < hours.Count; i++)
+                {
+                    if (start == null)
+                        start = hours[i];
+
+                    if (i == hours.Count - 1 || hours[i + 1] != hours[i] + 1)
+                    {
+                        result.Add((start.Value, hours[i] + 1));
+                        start = null;
+                    }
+                }
+
+                return result.Select(r => new Photographerschedule
+                    {
+                        Photographerid = PhotographerState.PhotographerId,
+                        Date = g.Key,
+                        Starttime = TimeSpan.FromHours(r.Start),
+                        Endtime = TimeSpan.FromHours(r.End)
+                    });
+            })
+            .ToList();
+
+        var affectedDates = SelectedCells.Select(c => c.Date).Distinct().ToList();
+        var existing = DbContext.Photographerschedules
+            .Where(s => affectedDates.Contains(s.Date) && s.Photographerid == PhotographerState.PhotographerId);
+        DbContext.Photographerschedules.RemoveRange(existing);
+        DbContext.Photographerschedules.AddRange(grouped);
+
+        await DbContext.SaveChangesAsync();
+        SelectedCells.Clear();
+        IsEditing = false;
+        await LoadScheduleData();
+    }
+
+    private void CellClicked(DateTime day, int hour)
+    {
+        if (!IsEditing || !IsCellClickable(day, hour)) return;
+        ToggleCellSelection(day, hour);
+    }
+
+    private bool IsCellClickable(DateTime day, int hour) => true;
+
+    private string GetCellColor(DateTime day, int hour)
+    {
+        var dateOnly = DateOnly.FromDateTime(day);
+        var order = Orders.FirstOrDefault(o =>
+            o.Appointmentdate == dateOnly &&
+            hour >= o.Starttime.Hour &&
+            hour < o.Endtime.Hour);
+
+        if (order != null) return "#ffe0e0";
+        if (SelectedCells.Contains((dateOnly, hour))) return "#cce5ff";
+        if (Schedule.Any(s => s.Date == dateOnly &&
+            hour >= s.Starttime.Hours && hour < s.Endtime.Hours))
+            return "#d1f0d1";
+
+        return "#ffffff";
+    }
+}

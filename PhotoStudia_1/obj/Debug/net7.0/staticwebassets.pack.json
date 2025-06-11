@@ -1,0 +1,33 @@
+{
+  "Files": [
+    {
+      "Id": "C:\\Users\\oberu\\Desktop\\Диплом\\PhotoStudia_2\\PhotoStudia_1\\wwwroot\\css\\site.css",
+      "PackagePath": "staticwebassets\\css\\site.css"
+    },
+    {
+      "Id": "C:\\Users\\oberu\\Desktop\\Диплом\\PhotoStudia_2\\PhotoStudia_1\\wwwroot\\data\\zones.geojson",
+      "PackagePath": "staticwebassets\\data\\zones.geojson"
+    },
+    {
+      "Id": "C:\\Users\\oberu\\Desktop\\Диплом\\PhotoStudia_2\\PhotoStudia_1\\wwwroot\\images\\model.png",
+      "PackagePath": "staticwebassets\\images\\model.png"
+    },
+    {
+      "Id": "obj\\Debug\\net7.0\\staticwebassets\\msbuild.PhotoStudia_1.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    },
+    {
+      "Id": "obj\\Debug\\net7.0\\staticwebassets\\msbuild.build.PhotoStudia_1.props",
+      "PackagePath": "build\\PhotoStudia_1.props"
+    },
+    {
+      "Id": "obj\\Debug\\net7.0\\staticwebassets\\msbuild.buildMultiTargeting.PhotoStudia_1.props",
+      "PackagePath": "buildMultiTargeting\\PhotoStudia_1.props"
+    },
+    {
+      "Id": "obj\\Debug\\net7.0\\staticwebassets\\msbuild.buildTransitive.PhotoStudia_1.props",
+      "PackagePath": "buildTransitive\\PhotoStudia_1.props"
+    }
+  ],
+  "ElementsToRemove": []
+}

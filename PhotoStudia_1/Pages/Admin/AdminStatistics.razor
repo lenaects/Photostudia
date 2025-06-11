@@ -1,0 +1,172 @@
+﻿@page "/admin/statistics"
+@using Microsoft.EntityFrameworkCore
+@using PhotoStudia_1.Models
+@using PhotoStudia_1.Services
+@inject PhotostudiaContext DbContext
+@inject IJSRuntime JSRuntime
+@using System.Globalization
+
+<style>
+    .statistic-container {
+        max-width: 1100px;
+        margin: 40px auto;
+        padding: 30px;
+        background: #fff7ef;
+        border-radius: 20px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+        font-family: Arial, sans-serif;
+    }
+
+    .stat-chart {
+        background: #fff;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 30px;
+    }
+
+    .month-controls {
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+        margin: 20px 0;
+    }
+
+        .month-controls button {
+            background-color: #d1a45f;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+            .month-controls button:hover {
+                background-color: #bb924c;
+            }
+</style>
+
+<h2 class="order-title">Статистика по студии за @CurrentMonth.ToString("MMMM yyyy")</h2>
+
+<div class="statistic-container">
+    <div class="month-controls">
+        <button @onclick="PreviousMonth" disabled="@IsPreviousDisabled">← Предыдущий</button>
+        <span style="align-self: center; font-weight: bold; font-size: 18px;">@CurrentMonth.ToString("MMMM yyyy")</span>
+        <button @onclick="NextMonth" disabled="@IsNextDisabled">Следующий →</button>
+    </div>
+
+    <div class="stat-chart">
+        <canvas id="photographerChart" width="900" height="400"></canvas>
+    </div>
+
+    <div class="stat-chart">
+        <canvas id="serviceChart" width="900" height="400"></canvas>
+    </div>
+</div>
+
+@code {
+    private DateTime CurrentMonth = DateTime.Today;
+    private bool IsPreviousDisabled => CurrentMonth <= DateTime.Today.AddMonths(-3);
+    private bool IsNextDisabled => CurrentMonth >= DateTime.Today.AddMonths(3);
+
+    private List<PhotographerStat> PhotographerStats = new();
+    private List<ServiceStat> ServiceStats = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadStatisticsAsync();
+            await JSRuntime.InvokeVoidAsync("drawAdminCharts", PhotographerStats, ServiceStats);
+        }
+    }
+
+    private async Task LoadStatisticsAsync()
+    {
+        var start = new DateOnly(CurrentMonth.Year, CurrentMonth.Month, 1);
+        var end = start.AddMonths(1).AddDays(-1);
+
+        var orders = await DbContext.Orders
+            .Where(o => o.Appointmentdate >= start && o.Appointmentdate <= end)
+            .Include(o => o.Service)
+            .Include(o => o.Mobileorders)
+            .ToListAsync();
+
+        var photographers = await DbContext.Photographers.ToListAsync();
+
+        PhotographerStats = photographers.Select(ph =>
+        {
+            var relatedOrders = orders.Where(o => o.Photographerid == ph.Photographerid).ToList();
+            int orderCount = relatedOrders.Count;
+            int hours = (int)Math.Floor(relatedOrders.Sum(o => (o.Endtime - o.Starttime).TotalHours));
+
+            double avgRating = DbContext.Feedbacks
+                .Where(f => f.Profilphotographer.Pfotographerid == ph.Photographerid)
+                .Select(f => f.Rating)
+                .DefaultIfEmpty()
+                .Average();
+
+            return new PhotographerStat
+                {
+                    Name = ph.Name,
+                    OrderCount = orderCount,
+                    HoursWorked = hours,
+                    Rating = Math.Round(avgRating, 1)
+                };
+        }).ToList();
+
+        var allServices = await DbContext.Services.ToListAsync();
+
+        ServiceStats = allServices.Select(service =>
+        {
+            var serviceOrders = orders.Where(o => o.Serviceid == service.Serviceid).ToList();
+            int count = serviceOrders.Count;
+            int hours = (int)Math.Floor(serviceOrders.Sum(o => (o.Endtime - o.Starttime).TotalHours));
+
+            return new ServiceStat
+                {
+                    ServiceName = service.Name,
+                    OrderCount = count,
+                    HoursWorked = hours
+                };
+        }).ToList();
+    }
+
+    private async Task PreviousMonth()
+    {
+        if (!IsPreviousDisabled)
+        {
+            CurrentMonth = CurrentMonth.AddMonths(-1);
+            await LoadStatisticsAsync();
+            await JSRuntime.InvokeVoidAsync("drawAdminCharts", PhotographerStats, ServiceStats);
+        }
+    }
+
+    private async Task NextMonth()
+    {
+        if (!IsNextDisabled)
+        {
+            CurrentMonth = CurrentMonth.AddMonths(1);
+            await LoadStatisticsAsync();
+            await JSRuntime.InvokeVoidAsync("drawAdminCharts", PhotographerStats, ServiceStats);
+        }
+    }
+
+    public class PhotographerStat
+    {
+        public string Name { get; set; } = "";
+        public int OrderCount { get; set; }
+        public int HoursWorked { get; set; }
+        public double Rating { get; set; }
+    }
+
+    public class ServiceStat
+    {
+        public string ServiceName { get; set; } = "";
+        public int OrderCount { get; set; }
+        public int HoursWorked { get; set; }
+    }
+}
+

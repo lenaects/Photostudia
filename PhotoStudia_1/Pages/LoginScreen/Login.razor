@@ -1,0 +1,175 @@
+﻿@page "/login"
+ @using Microsoft.EntityFrameworkCore
+@using Microsoft.Data.SqlClient
+@using Npgsql
+@using PhotoStudia_1.Models
+@using PhotoStudia_1.Services
+@inject NavigationManager NavigationManager
+@inject IConfiguration Configuration
+@inject PhotostudiaContext DbContext
+@inject PhotographerState PhotographerState
+@inject AdminState AdminState
+
+<style>
+    body {
+        background-color: #FCEFE4;
+        font-family: "Segoe UI", sans-serif;
+        margin: 0;
+    }
+
+    .auth-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        padding: 20px;
+    }
+
+    .auth-form {
+        background: #fff;
+        padding: 40px;
+        border-radius: 16px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        max-width: 400px;
+    }
+
+        .auth-form h1 {
+            font-size: 28px;
+            margin-bottom: 24px;
+            color: #333;
+            text-align: center;
+        }
+
+        .auth-form input {
+            width: 100%;
+            padding: 14px;
+            margin-bottom: 16px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            font-size: 15px;
+            background: #fff;
+            box-sizing: border-box;
+        }
+
+        .auth-form button {
+            width: 100%;
+            padding: 14px;
+            background-color: #D26A5A;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+            .auth-form button:hover {
+                background-color: #b65949;
+            }
+
+    .error-message {
+        color: red;
+        font-size: 14px;
+        text-align: center;
+        margin-top: 10px;
+    }
+
+    .nav-text {
+        text-align: center;
+        margin-top: 20px;
+        font-size: 14px;
+    }
+
+        .nav-text a {
+            color: #D26A5A;
+            text-decoration: none;
+            font-weight: 500;
+        }
+</style>
+
+<div class="auth-container">
+    <div class="auth-form">
+        <h1>Вход</h1>
+        <form @onsubmit="HandleLogin">
+            <input @bind="UserLogin" placeholder="Логин" />
+            <input @bind="Password" type="password" placeholder="Пароль" />
+            <button type="submit">Войти</button>
+        </form>
+        <p class="error-message">@ErrorMessage</p>
+        <p class="nav-text">Нет аккаунта? <a href="/registration">Зарегистрироваться</a></p>
+    </div>
+</div>
+
+@code {
+    private string UserLogin { get; set; } = string.Empty;
+    private string Password { get; set; } = string.Empty;
+    private string ErrorMessage { get; set; } = string.Empty;
+
+    private async Task HandleLogin()
+    {
+        if (string.IsNullOrWhiteSpace(UserLogin) || string.IsNullOrWhiteSpace(Password))
+        {
+            ErrorMessage = "Логин и пароль не должны быть пустыми.";
+            return;
+        }
+
+        if (await IsAdminValid(UserLogin, Password))
+        {
+            AdminState.SetAdmin(1, "Администратор");
+            NavigationManager.NavigateTo("/");
+            return;
+        }
+
+        var photographer = await DbContext.Photographers.FirstOrDefaultAsync(p => p.Login == UserLogin);
+        if (photographer != null && PasswordHasher.VerifyPassword(Password, photographer.Password, photographer.Salt))
+        {
+            PhotographerState.SetPhotographer(photographer.Photographerid, photographer.Name);
+
+            // Проверка наличия записей в трёх таблицах
+            bool hasProfile = await DbContext.Profilphotographers.AnyAsync(p => p.Pfotographerid == photographer.Photographerid);
+            bool hasTypes = await DbContext.Profiltypeshootings
+                .Include(p => p.Profilphotographer)
+                .AnyAsync(p => p.Profilphotographer.Pfotographerid == photographer.Photographerid);
+            bool hasPortfolio = await DbContext.Portfolios
+                .Include(p => p.Profilphotographer)
+                .AnyAsync(p => p.Profilphotographer.Pfotographerid == photographer.Photographerid);
+
+            if (!hasProfile || !hasTypes || !hasPortfolio)
+            {
+                NavigationManager.NavigateTo("/photographer/setup");
+                return;
+            }
+
+            NavigationManager.NavigateTo($"/profil/{photographer.Photographerid}");
+            return;
+        }
+
+        ErrorMessage = "Неверный логин или пароль.";
+    }
+
+    private async Task<bool> IsAdminValid(string login, string password)
+    {
+        try
+        {
+            var builder = new NpgsqlConnectionStringBuilder
+                {
+                    Host = "195.19.93.77",
+                    Port = 5432,
+                    Database = "Photostudia",
+                    Username = login,
+                    Password = password,
+                    TrustServerCertificate = true
+                };
+
+            using var connection = new NpgsqlConnection(builder.ConnectionString);
+            await connection.OpenAsync();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка входа: {ex.Message}");
+            return false;
+        }
+    }
+} 

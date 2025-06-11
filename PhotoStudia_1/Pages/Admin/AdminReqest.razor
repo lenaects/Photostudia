@@ -1,0 +1,318 @@
+﻿@page "/admin/requests"
+@using Microsoft.EntityFrameworkCore
+@using PhotoStudia_1.Models
+@inject PhotostudiaContext DbContext
+@inject NavigationManager NavigationManager
+
+<style>
+    .requests-container {
+        display: grid;
+        grid-template-columns: 1fr 2fr;
+        gap: 20px;
+        background-color: #FFF7EF;
+        padding: 30px;
+        font-family: Arial, sans-serif;
+    }
+
+    .request-list, .order-form {
+        background-color: #fff;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        max-height: 85vh;
+        overflow-y: auto;
+    }
+
+    .request-item {
+        padding: 15px;
+        border-radius: 10px;
+        margin-bottom: 12px;
+        background-color: #eee1d2;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+        .request-item:hover {
+            background-color: #d1a45f;
+            color: white;
+        }
+
+    .request-info {
+        font-size: 14px;
+        color: #333;
+    }
+
+    .delete-button {
+        background: #e74c3c;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 5px 10px;
+        cursor: pointer;
+        float: right;
+    }
+
+    .order-form-enhanced {
+        background: #fff;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        max-width: 600px;
+    }
+
+    .form-group {
+        margin-bottom: 14px;
+    }
+
+        .form-group label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+    .highlight-green {
+        background-color: #d4edda;
+        color: #155724;
+    }
+
+    .highlight-red {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+
+    .save-button {
+        background-color: #D26A5A;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        margin-top: 10px;
+    }
+</style>
+<div class="requests-container">
+    <div class="request-list">
+        <h3>Заявки</h3>
+        @if (Requests.Count == 0)
+        {
+            <p style="color: #777;">Нет заявок для отображения.</p>
+        }
+        else
+        {
+            @foreach (var r in Requests)
+            {
+                <div class="request-item" @onclick="() => SelectRequest(r)">
+                    <div class="request-info">
+                        <strong>@r.ClientName</strong> <br />
+                        <span>@r.ClientPhone</span><br />
+                        <span>@r.ClientEmail</span>
+
+                        @if (r.Service != null)
+                        {
+                            <div><strong>Выбранная услуга:</strong> @r.Service.Name</div>
+                        }
+                        else
+                        {
+                            <div><strong>Выбранная услуга:</strong> Отсутствует</div>
+                        }
+
+                        <div><strong>Тип съёмки:</strong> @(r.ShootingType?.Typeshooting1 ?? "Отсутствует")</div>
+                        <div><strong>Дата съёмки:</strong> @(r.ShootingDate?.ToString("dd.MM.yyyy") ?? "Отсутствует")</div>
+                        <div><strong>Фотограф:</strong> @(r.Photographer?.Name ?? "Не указан")</div>
+
+                        <button class="delete-button" @onclick="(e) => DeleteRequest(r, e)">Удалить</button>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+
+    <div class="order-form-enhanced">
+        <h3>Создание заказа</h3>
+
+        @if (SelectedRequest != null)
+        {
+            <div class="form-group">
+                <label>Имя клиента</label>
+                <input value="@SelectedRequest.ClientName" disabled />
+            </div>
+            <div class="form-group">
+                <label>Телефон</label>
+                <input value="@SelectedRequest.ClientPhone" disabled />
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input value="@SelectedRequest.ClientEmail" disabled />
+            </div>
+            <div class="form-group">
+                <label>Дата заказа</label>
+                <input type="date" value="@DateTime.Now.ToString("yyyy-MM-dd")" disabled />
+            </div>
+            <div class="form-group">
+                <label>Дата съёмки</label>
+                <input type="date" @bind-value="SelectedDate" />
+            </div>
+            <div class="form-group">
+                <label>Услуга</label>
+                <select @bind="SelectedServiceId">
+                    <option disabled selected>Выберите услугу</option>
+                    @foreach (var s in Services)
+                    {
+                        <option value="@s.Serviceid">@s.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Тип съёмки</label>
+                <select @bind="SelectedTypeShootingId">
+                    <option disabled selected>Выберите тип съёмки</option>
+                    @foreach (var t in Typeshootings)
+                    {
+                        <option value="@t.Id">@t.Typeshooting1</option>
+                    }
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Время начала</label>
+                <select @bind="StartTime">
+                    <option value="">--</option>
+                    @for (int hour = 9; hour <= 20; hour++)
+                    {
+                        var time = new TimeOnly(hour, 0);
+                        <option value="@time">@($"{hour:00}:00")</option>
+                    }
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Время окончания</label>
+                <select @bind="EndTime">
+                    <option value="">--</option>
+                    @for (int hour = 10; hour <= 21; hour++)
+                    {
+                        var time = new TimeOnly(hour, 0);
+                        <option value="@time">@($"{hour:00}:00")</option>
+                    }
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Фотограф</label>
+                <select @bind="SelectedPhotographerId">
+                    <option disabled selected>Выберите фотографа</option>
+                    @foreach (var p in AvailablePhotographers)
+                    {
+                        var css = PhotographerAvailability.ContainsKey(p.Photographerid) && PhotographerAvailability[p.Photographerid]
+                        ? "highlight-green"
+                        : "highlight-red";
+
+                        <option class="@css" value="@p.Photographerid">@p.Name</option>
+                    }
+                </select>
+            </div>
+
+            <button class="save-button" @onclick="CreateOrder">Сохранить заказ</button>
+        }
+        else
+        {
+            <p>Выберите заявку для обработки.</p>
+        }
+    </div>
+</div>
+
+@code {
+    private List<Request> Requests = new();
+    private List<Photographer> Photographers = new();
+    private List<Service> Services = new();
+    private List<Typeshooting> Typeshootings = new();
+    private Dictionary<int, bool> PhotographerAvailability = new();
+    private List<Photographer> AvailablePhotographers { get; set; } = new();
+
+    private Request? SelectedRequest;
+    private int SelectedServiceId;
+    private int SelectedTypeShootingId;
+    private int SelectedPhotographerId;
+    private DateOnly SelectedDate = DateOnly.FromDateTime(DateTime.Now);
+    private DateOnly OrderDate = DateOnly.FromDateTime(DateTime.Now);
+    private TimeOnly StartTime = new(12, 0);
+    private TimeOnly EndTime = new(14, 0);
+
+    protected override async Task OnInitializedAsync()
+    {
+        Requests = await DbContext.Requests.ToListAsync();  // <-- Это должно быть обязательно
+        Photographers = await DbContext.Photographers.ToListAsync();
+        Services = await DbContext.Services.ToListAsync();
+        Typeshootings = await DbContext.Typeshootings.ToListAsync();
+        AvailablePhotographers = await DbContext.Photographers.ToListAsync();
+    }
+
+    private async Task DeleteRequest(Request request, MouseEventArgs e)
+    {
+        DbContext.Requests.Remove(request);
+        await DbContext.SaveChangesAsync();
+        Requests.Remove(request);
+    }
+
+    private void SelectRequest(Request r)
+    {
+        SelectedRequest = r;
+        SelectedServiceId = r.ServiceId ?? 0;
+        SelectedTypeShootingId = r.ShootingTypeId ?? 0;
+        SelectedDate = r.ShootingDate ?? DateOnly.FromDateTime(DateTime.Now);
+        UpdatePhotographerAvailability();
+    }
+
+    private void UpdatePhotographerAvailability()
+    {
+        PhotographerAvailability.Clear();
+        foreach (var p in Photographers)
+        {
+            bool matchesType = DbContext.Profilphotographers.Any(pr => pr.Pfotographerid == p.Photographerid &&
+                pr.Profiltypeshootings.Any(pt => pt.Typeshootingid == SelectedTypeShootingId));
+            bool isFree = DbContext.Photographerschedules.Any(s =>
+                s.Photographerid == p.Photographerid &&
+                s.Date == SelectedDate);
+
+            PhotographerAvailability[p.Photographerid] = matchesType && isFree;
+        }
+    }
+
+    private async Task CreateOrder()
+    {
+        if (SelectedRequest is null) return;
+
+        var client = new Client
+            {
+                Name = SelectedRequest.ClientName,
+                Phone = SelectedRequest.ClientPhone,
+                Email = SelectedRequest.ClientEmail
+            };
+        DbContext.Clients.Add(client);
+        await DbContext.SaveChangesAsync();
+
+        var order = new Order
+            {
+                Clientid = client.Clientid,
+                Photographerid = SelectedPhotographerId,
+                Serviceid = SelectedServiceId,
+                Typeshootingid = SelectedTypeShootingId,
+                Orderdate = OrderDate,
+                Appointmentdate = SelectedDate,
+                Starttime = StartTime,
+                Endtime = EndTime
+            };
+
+        DbContext.Orders.Add(order);
+        await DbContext.SaveChangesAsync();
+        Requests.Remove(SelectedRequest);
+        SelectedRequest = null;
+    }
+}

@@ -1,0 +1,554 @@
+﻿@page "/profil/{PhotographerId:int}"
+ @using PhotoStudia_1.Models
+@using Microsoft.EntityFrameworkCore
+@using PhotoStudia_1.Services
+@inject PhotostudiaContext DbContext
+@inject PhotographerState PhotographerState
+@inject NavigationManager NavigationManager
+@inject AdminState AdminState
+<style>
+    .profile-container {
+        font-family: Arial, sans-serif;
+        background: #FFF7EF;
+        padding: 40px;
+        max-width: 1100px;
+        margin: 0 auto;
+    }
+
+    .profile-content {
+        display: flex;
+        gap: 30px;
+    }
+
+    .profile-photo-section {
+        flex: 1;
+        max-width: 300px;
+        text-align: center;
+    }
+
+    .profile-photo {
+        width: 100%;
+        height: 300px;
+        object-fit: cover;
+        border-radius: 10px;
+        margin-bottom: 15px;
+    }
+
+    .profile-info-section {
+        flex: 2;
+    }
+
+    .experience {
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+
+    .description {
+        font-size: 15px;
+        line-height: 1.6;
+        color: #333;
+        margin-bottom: 20px;
+    }
+
+    .categories {
+        margin-top: 15px;
+        color: #444;
+        font-size: 14px;
+    }
+
+        .categories span {
+            background: #EEE1D2;
+            border-radius: 6px;
+            padding: 6px 10px;
+            margin-right: 6px;
+            display: inline-block;
+        }
+
+    .portfolio-title {
+        font-size: 18px;
+        font-weight: 600;
+        margin-top: 30px;
+    }
+
+    .portfolio {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+
+        .portfolio img {
+            width: 160px;
+            height: 160px;
+            object-fit: cover;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+    .feedback-section {
+        margin-top: 40px;
+    }
+
+    .feedback-entry {
+        display: flex;
+        background: #fff;
+        border: 1px solid #e3d5c2;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 16px;
+        align-items: flex-start;
+        gap: 16px;
+    }
+
+    .feedback-avatar {
+        background-color: #D26A5A;
+        color: white;
+        font-weight: bold;
+        border-radius: 50%;
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        flex-shrink: 0;
+    }
+
+    .feedback-body {
+        flex: 1;
+    }
+
+    .feedback-name {
+        font-weight: 600;
+        font-size: 16px;
+        margin-bottom: 4px;
+        color: #222;
+    }
+
+    .feedback-text {
+        font-size: 14px;
+        color: #555;
+        line-height: 1.5;
+    }
+
+    .feedback-date {
+        font-size: 12px;
+        color: #999;
+        margin-top: 4px;
+    }
+
+
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+    }
+
+    .modal-content {
+        position: relative;
+        background: white;
+        padding: 10px;
+        border-radius: 8px;
+        max-width: 90%;
+        max-height: 90%;
+        border: 2px solid red;
+    }
+
+        .modal-content img {
+            max-width: 100%;
+            max-height: 80vh;
+            display: block;
+            margin: 0 auto;
+        }
+
+    .close-btn {
+        position: absolute;
+        top: 5px;
+        right: 10px;
+        background: transparent;
+        color: #444;
+        color: white;
+        border: none;
+        font-size: 18px;
+        padding: 5px 10px;
+        cursor: pointer;
+        border-radius: 4px;
+        font-weight: bold;
+    }
+
+        .close-btn:hover {
+            color: #D26A5A;
+        }
+
+    .nav-btn {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        background: #333;
+        color: white;
+        border: none;
+        font-size: 24px;
+        padding: 8px 12px;
+        cursor: pointer;
+        border-radius: 50%;
+    }
+
+        .nav-btn.left {
+            left: -40px;
+        }
+
+        .nav-btn.right {
+            right: -40px;
+        }
+
+    .form-control {
+        padding: 10px;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+        font-size: 14px;
+        background: white;
+        box-sizing: border-box;
+        width: 100%;
+    }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #d1a45f;
+            box-shadow: 0 0 5px rgba(209, 164, 95, 0.4);
+        }
+</style>
+
+<div class="profile-container">
+    <div class="profile-content">
+        <div class="profile-photo-section">
+            <img src="@GetPhoto()" class="profile-photo" />
+            @if (ServiceTypes.Any())
+            {
+                <div style="margin-top: 30px;">
+                    <div style="font-weight: 600; font-size: 16px; margin-bottom: 8px;">Типы услуг:</div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                        @foreach (var service in ServiceTypes)
+                        {
+                            <span style="background: #dcd3c7; padding: 6px 12px; border-radius: 8px; font-size: 14px; color: #333;">
+                                @service
+                            </span>
+                        }
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div style="margin-top: 30px; font-size: 14px; color: #999;">
+                    Информация о типах услуг отсутствует
+                </div>
+            }
+
+           
+            @if (IsOwnProfile)
+            {
+                <button @onclick='() => NavigationManager.NavigateTo("/photographer/setup")'
+                        style="margin-top: 10px; padding: 10px 18px; background-color: #D26A5A; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                    ✏ Редактировать профиль
+                </button>
+            }
+        </div>
+
+        <div class="profile-info-section">
+            <h2>@Photographer?.Name</h2>
+            @if (AverageRating > 0)
+            {
+                <div style="margin-top: 6px; display: flex; align-items: center; gap: 6px; font-size: 16px; color: #333;">
+                    <span style="font-size: 22px; color: #FFD700;">★</span>
+                    <span style="font-weight: bold;">@AverageRating.ToString("0.0")</span>
+                </div>
+            }
+            else
+            {
+                <div style="margin-top: 6px; font-size: 14px; color: #888;">
+                    Рейтинг отсутствует
+                </div>
+            }
+            <div class="experience">Опыт работы: @(Profile?.Experience.ToString() ?? "—") лет</div>
+            <div class="description">@GetText(Profile?.Description)</div>
+
+            @if (Categories.Any())
+            {
+                <div class="categories">
+                    <div style="font-weight: 600; margin-bottom: 6px;">Типы съёмок:</div>
+                    @foreach (var cat in Categories)
+                    {
+                        <span>@cat</span>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="categories">Типы съёмок: Информация отсутствует</div>
+            }
+        </div>
+    </div>
+
+    @if (PortfolioImages.Any())
+    {
+        <div class="portfolio-title">Мои работы</div>
+        <div class="portfolio">
+            @for (int i = 0; i < PortfolioImages.Count; i++)
+            {
+                var index = i;
+                <img @key="index"
+                     src="data:image/jpeg;base64,@Convert.ToBase64String(PortfolioImages[index])"
+                     @onclick="@(() => OpenModal(index))"
+                     style="cursor: pointer;" />
+            }
+        </div>
+    }
+   
+    else
+    {
+        <p style="margin-top: 20px;">Примеры работ отсутствуют</p>
+    }
+    @if (ModalVisible) 
+    {
+        <div class="modal-overlay" @onclick="CloseModal">
+            <div class="modal-content" @onclick:stopPropagation>
+                <button class="close-btn" @onclick="CloseModal">×</button>
+                <img src="@ModalImage" alt="Фотография" />
+                <button class="nav-btn left" @onclick="PrevImage">‹</button>
+                <button class="nav-btn right" @onclick="NextImage">›</button>
+            </div>
+        </div>
+    }
+
+    @if (Feedbacks.Any())
+    {
+        <div class="feedback-section">
+            <h3 style="font-size: 20px; font-weight: 600; margin-bottom: 10px;">Отзывы</h3>
+            @foreach (var fb in Feedbacks)
+            {
+                <div class="feedback-entry">
+                    <div class="feedback-avatar">@GetInitials(fb.Nameclient)</div>
+                    <div class="feedback-body">
+                        <div class="feedback-name">
+                            @fb.Nameclient
+                            <span style="margin-left: 10px; color: #FFD700; font-size: 16px;">
+                                @for (int i = 1; i <= 5; i++)
+                                {
+                                    <span>@(i <= fb.Rating ? "★" : "☆")</span>
+                                }
+                            </span>
+                        </div>
+                        <div class="feedback-text">@fb.Feedback1</div>
+
+                    </div>
+                </div>
+                @if (AdminState.IsLoggedIn)
+                {
+                    <button @onclick="@(() => DeleteFeedback(fb.Id))"
+                            style="background: none; border: none; color: #e74c3c; font-size: 20px; margin-left: 10px; cursor: pointer;">
+                        🗑
+                    </button>
+                }
+            }
+        </div>
+    }
+    else
+    {
+        <p style="margin-top: 30px;">Отзывов пока нет</p>
+    }
+
+    @if (!PhotographerState.IsLoggedIn && !AdminState.IsLoggedIn)
+    {
+        <div class="feedback-section">
+            <h3 style="font-size: 20px; font-weight: 600; margin-bottom: 10px;">Оставить отзыв</h3>
+
+            <div style="display: flex; flex-direction: column; gap: 12px; max-width: 500px;">
+                <input placeholder="Ваше имя" @bind="NewFeedback.Nameclient" class="form-control" />
+                <input placeholder="Email" @bind="NewFeedback.Email" class="form-control" />
+                <textarea placeholder="Ваш отзыв" @bind="NewFeedback.Feedback1" class="form-control" style="height: 100px;"></textarea>
+
+                <div style="display: flex; gap: 10px; margin-top: -10px; margin-bottom: 10px; font-size: 32px; justify-content: flex-start;">
+                    @for (int i = 1; i <= 5; i++)
+                    {
+                        var current = i; // 👈 вот это ключ
+                        <span @onclick="() => SetRating(current)"
+                              @onmouseover="() => HoveredRating = current"
+                              @onmouseout="() => HoveredRating = 0"
+                              style="cursor: pointer; transition: 0.2s; font-size: 32px; color:@(current <= (HoveredRating > 0 ? HoveredRating : Rating) ? "#FFD700" : "#ccc")">
+                            ★
+                        </span>
+                    }
+                </div>
+                <button class="details-btn" @onclick="SubmitFeedback">Отправить</button>
+
+                @if (!string.IsNullOrEmpty(FeedbackMessage))
+                {
+                    <p style="color: green;">@FeedbackMessage</p>
+                }
+            </div>
+        </div>
+    }
+</div>
+@code {
+    private bool IsOwnProfile => PhotographerState.IsLoggedIn && PhotographerState.PhotographerId == PhotographerId;
+    [Parameter] public int PhotographerId { get; set; }
+
+    private double AverageRating = 0;
+
+    private Photographer? Photographer;
+    private Profilphotographer? Profile;
+    private List<string> Categories = new();
+    private List<byte[]> PortfolioImages = new();
+    private bool ModalVisible = false;
+    private int CurrentImageIndex = 0;
+
+    private int Rating = 5;
+    private int HoveredRating = 0;
+    private List<string> ServiceTypes = new();
+    private List<Feedback> Feedbacks = new();
+    private Feedback NewFeedback = new();
+    private string FeedbackMessage = "";
+    private string ModalImage
+    {
+        get
+        {
+            if (PortfolioImages == null || PortfolioImages.Count == 0)
+                return "";
+            if (CurrentImageIndex < 0 || CurrentImageIndex >= PortfolioImages.Count)
+                CurrentImageIndex = 0;
+
+            return $"data:image/jpeg;base64,{Convert.ToBase64String(PortfolioImages[CurrentImageIndex])}";
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        NewFeedback.Rating = 5;
+        Photographer = await DbContext.Photographers
+            .Include(p => p.Profilphotographers)
+            .FirstOrDefaultAsync(p => p.Photographerid == PhotographerId);
+
+        Profile = await DbContext.Profilphotographers
+      .Include(p => p.Portfolios)
+      .FirstOrDefaultAsync(p => p.Pfotographerid == PhotographerId);
+
+        Feedbacks = await DbContext.Feedbacks
+      .Where(f => f.Profilphotographerid == Profile.Id)
+      .OrderByDescending(f => f.Id)
+      .ToListAsync();
+
+        ServiceTypes = await DbContext.ProfilServiceTypes
+      .Where(p => p.ProfilphotographerId == Profile.Id)
+      .Select(p => p.ServiceType.Name)
+      .ToListAsync();
+
+        if (Profile != null)
+        {
+            Photographer = Profile.Pfotographer;
+
+            Categories = await DbContext.Profiltypeshootings
+                .Where(p => p.Profilphotographerid == Profile.Id)
+                .Select(p => p.Typeshooting.Typeshooting1)
+                .ToListAsync();
+
+            PortfolioImages = Profile.Portfolios.Select(p => p.Image).ToList();
+        }
+        AverageRating = Feedbacks.Any() ? Feedbacks.Average(f => f.Rating) : 0;
+    }
+    private void OpenModal(int index)
+    {
+        Console.WriteLine($"OpenModal called with index: {index}"); // В консоль вывода
+        if (index < 0 || index >= PortfolioImages.Count)
+            return;
+
+        CurrentImageIndex = index;
+        ModalVisible = true;
+        StateHasChanged(); 
+    }
+
+    private void CloseModal()
+    {
+        ModalVisible = false;
+    }
+
+    private void PrevImage()
+    {
+        if (PortfolioImages.Count == 0) return;
+        CurrentImageIndex = (CurrentImageIndex - 1 + PortfolioImages.Count) % PortfolioImages.Count;
+    }
+
+    private void NextImage()
+    {
+        if (PortfolioImages.Count == 0) return;
+        CurrentImageIndex = (CurrentImageIndex + 1) % PortfolioImages.Count;
+    }
+
+
+    private string GetPhoto() =>
+        Profile?.Image?.Length > 0
+            ? $"data:image/jpeg;base64,{Convert.ToBase64String(Profile.Image)}"
+            : "images/plug.jpg";
+
+    private string GetText(string? text) => string.IsNullOrWhiteSpace(text) ? "Информация отсутствует" : text;
+    private async Task SubmitFeedback()
+    {
+        if (Profile == null) return;
+
+        if (string.IsNullOrWhiteSpace(NewFeedback.Nameclient) ||
+            string.IsNullOrWhiteSpace(NewFeedback.Email) ||
+            string.IsNullOrWhiteSpace(NewFeedback.Feedback1))
+        {
+            FeedbackMessage = "Заполните все поля.";
+            return;
+        }
+        NewFeedback.Rating = Rating;
+
+        if (NewFeedback.Rating < 1 || NewFeedback.Rating > 5)
+        {
+            FeedbackMessage = "Пожалуйста, укажите рейтинг от 1 до 5 звёзд.";
+            return;
+        }
+        NewFeedback.Profilphotographerid = Profile.Id;
+        NewFeedback.Rating = Rating;
+
+        DbContext.Feedbacks.Add(NewFeedback);
+        await DbContext.SaveChangesAsync();
+
+        Feedbacks.Add(NewFeedback);
+        AverageRating = Feedbacks.Average(f => f.Rating);
+        NewFeedback = new Feedback();
+        Rating = 5;
+        HoveredRating = 0;
+        FeedbackMessage = "Спасибо за ваш отзыв!";
+    }
+    private string GetInitials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "👤";
+
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 1) return parts[0][0].ToString().ToUpper();
+        return (parts[0][0].ToString() + parts[1][0].ToString()).ToUpper();
+    }
+    private void SetRating(int rating)
+    {
+        Rating = rating;
+        StateHasChanged();
+    }
+    private async Task DeleteFeedback(int id)
+    {
+        var feedback = await DbContext.Feedbacks.FindAsync(id);
+        if (feedback != null)
+        {
+            DbContext.Feedbacks.Remove(feedback);
+            await DbContext.SaveChangesAsync();
+            Feedbacks.RemoveAll(f => f.Id == id);
+            AverageRating = Feedbacks.Any() ? Feedbacks.Average(f => f.Rating) : 0;
+        }
+    }
+} 

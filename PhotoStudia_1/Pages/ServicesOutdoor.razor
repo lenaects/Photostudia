@@ -1,0 +1,262 @@
+﻿@page "/services/outdoor"
+@using PhotoStudia_1.Models
+@using Microsoft.EntityFrameworkCore
+@inject PhotostudiaContext DbContext
+@inject AdminState AdminState
+@using PhotoStudia_1.Services
+@inject IJSRuntime JS
+<style>
+    .mobile-service-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 30px;
+        justify-content: center;
+        background-color: #fff7ef;
+        padding: 40px;
+    }
+
+    .mobile-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        padding: 24px;
+        width: 480px;
+        transition: transform 0.2s;
+    }
+
+        .mobile-card:hover {
+            transform: translateY(-4px);
+        }
+
+    .district-title {
+        font-size: 22px;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+
+    .service-name {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 6px;
+        color: #444;
+    }
+
+    .service-description {
+        font-size: 14px;
+        color: #666;
+        margin-bottom: 10px;
+    }
+
+    .service-price {
+        font-size: 16px;
+        color: #000;
+        font-weight: bold;
+    }
+
+    .map-container {
+        margin: 30px auto 60px auto;
+        text-align: center;
+        max-width: 1000px;
+    }
+
+    .map-image {
+        max-width: 100%;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        position: relative;
+    }
+
+    .map-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+    }
+
+    .tooltip {
+        position: absolute;
+        background: rgba(0, 0, 0, 0.75);
+        color: #fff;
+        padding: 6px 10px;
+        border-radius: 6px;
+        font-size: 14px;
+        white-space: nowrap;
+        display: none;
+    }
+
+    .district-area:hover .tooltip {
+        display: block;
+    }
+</style>
+@if (AdminState.IsLoggedIn)
+{
+    <div style="text-align: center; margin-bottom: 20px;">
+        <button @onclick="OpenAddModal" style="padding: 10px 20px; background-color: #d1a45f; color: white; border: none; border-radius: 6px; font-size: 16px;">
+            + Добавить выездную услугу
+        </button>
+    </div>
+<div class="mobile-service-grid">
+    @foreach (var item in mobileServices)
+    {
+        <div class="mobile-card">
+            <div class="service-name">@item.Service.Name</div>
+            <div class="service-description">@item.Service.Description</div>
+            <div class="service-price">Цена: @item.MobileService.Price руб/@item.Service.Unit</div>
+                @if (AdminState.IsLoggedIn)
+                {
+                    <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 10px;">
+                        <button @onclick="() => EditService(item)" style="padding: 6px 14px; background: #2ecc71; color: white; border: none; border-radius: 6px;">✏</button>
+                        <button @onclick="() => DeleteService(item)" style="padding: 6px 14px; background: #e74c3c; color: white; border: none; border-radius: 6px;">🗑</button>
+                    </div>
+                }
+        </div>
+    }
+</div>
+
+}
+
+
+<div class="map-container">
+    <h2>Карта зон обслуживания</h2>
+    <div id="ekb-map" style="height: 600px; max-width: 1000px; margin: 0 auto; border-radius: 12px;"></div>
+</div>
+
+@code {
+    private List<MobileServiceViewModel> mobileServices = new();
+    private bool mapInitialized = false;
+    private bool ShowModal = false;
+    private bool IsEditMode = false;
+    private MobileServiceViewModel EditingMobile = new()
+        {
+            MobileService = new MobileService(),
+            Service = new Service()
+        };
+    private MobileServiceViewModel EditingMobileService = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!mapInitialized && mobileServices.Any())
+        {
+            var zones = mobileServices.Select(ms => new
+            {
+                name = ms.Service?.Name ?? "Без названия",
+                price = ms.MobileService.Price ?? 0,
+                radius_from_km = ms.MobileService.RadiusFromKm,
+                radius_to_km = ms.MobileService.RadiusToKm
+            }).OrderBy(z => z.radius_from_km).ToList();
+
+            Console.WriteLine("✅ Передаём в JS:");
+            foreach (var z in zones)
+                Console.WriteLine($" - {z.name}: {z.radius_from_km}–{z.radius_to_km} км, {z.price}₽");
+
+            await JS.InvokeVoidAsync("mapService.drawGeoZones", zones, "4a272cda2ddc45dfa07ceeebefcf0975");
+            mapInitialized = true; // ВОТ ЭТО возвращаем!
+        }
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        var data = await DbContext.MobileServices
+            .Include(ms => ms.Service)
+            .Where(ms => ms.Service != null && ms.Price != null)
+            .ToListAsync();
+
+        mobileServices = data.Select(ms => new MobileServiceViewModel
+            {
+                MobileService = ms,
+                Service = ms.Service!
+            }).ToList();
+    }
+
+    private void OpenAddModal()
+    {
+        EditingMobile = new MobileServiceViewModel
+            {
+                Service = new Service(),
+                MobileService = new MobileService()
+            };
+        IsEditMode = false;
+        ShowModal = true;
+    }
+
+    private void CloseModal()
+    {
+        ShowModal = false;
+    }
+    private void EditService(MobileServiceViewModel item)
+    {
+        EditingMobileService = new MobileServiceViewModel
+            {
+                Service = new Service
+                {
+                    Serviceid = item.Service.Serviceid,
+                    Name = item.Service.Name,
+                    Description = item.Service.Description,
+                    Unit = item.Service.Unit
+                },
+                MobileService = new MobileService
+                {
+                    Id = item.MobileService.Id,
+                    ServiceId = item.MobileService.ServiceId,
+                    Price = item.MobileService.Price,
+                    RadiusFromKm = item.MobileService.RadiusFromKm,
+                    RadiusToKm = item.MobileService.RadiusToKm
+                }
+            };
+        IsEditMode = true;
+        ShowModal = true;
+    }
+
+    private async Task SaveService()
+    {
+        if (IsEditMode)
+        {
+            var existingService = await DbContext.Services.FindAsync(EditingMobileService.Service.Serviceid);
+            var existingMobile = await DbContext.MobileServices.FindAsync(EditingMobileService.MobileService.Id);
+
+            if (existingService != null && existingMobile != null)
+            {
+                existingService.Name = EditingMobileService.Service.Name;
+                existingService.Description = EditingMobileService.Service.Description;
+                existingService.Unit = EditingMobileService.Service.Unit;
+
+                existingMobile.Price = EditingMobileService.MobileService.Price;
+                existingMobile.RadiusFromKm = EditingMobileService.MobileService.RadiusFromKm;
+                existingMobile.RadiusToKm = EditingMobileService.MobileService.RadiusToKm;
+            }
+        }
+        else
+        {
+            DbContext.Services.Add(EditingMobileService.Service);
+            await DbContext.SaveChangesAsync();
+
+            EditingMobileService.MobileService.ServiceId = EditingMobileService.Service.Serviceid;
+            DbContext.MobileServices.Add(EditingMobileService.MobileService);
+        }
+
+        await DbContext.SaveChangesAsync();
+        ShowModal = false;
+        await OnInitializedAsync();
+    }
+    private async Task DeleteService(MobileServiceViewModel item)
+    {
+        var service = await DbContext.Services.FindAsync(item.Service.Serviceid);
+        var mobile = await DbContext.MobileServices.FindAsync(item.MobileService.Id);
+
+        if (mobile != null)
+            DbContext.MobileServices.Remove(mobile);
+
+        if (service != null)
+            DbContext.Services.Remove(service);
+
+        await DbContext.SaveChangesAsync();
+        await OnInitializedAsync();
+    }
+
+    public class MobileServiceViewModel
+    {
+        public MobileService MobileService { get; set; } = null!;
+        public Service Service { get; set; } = null!;
+    }
+}

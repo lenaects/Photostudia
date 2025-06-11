@@ -1,0 +1,118 @@
+﻿@page "/ourphotographers"
+ @using PhotoStudia_1.Models
+@using Microsoft.EntityFrameworkCore
+@inject PhotostudiaContext DbContext
+<style>
+    .title {
+        text-align: center;
+        font-size: 36px;
+        margin-top: 20px;
+        margin-bottom: 30px;
+        color: #222;
+    }
+
+    .photographers-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 24px;
+        padding: 0 20px;
+    }
+
+    .photographer-card {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        text-align: center;
+    }
+
+        .photographer-card img {
+            width: 100%;
+            height: 250px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .photographer-card h3 {
+            margin: 0;
+            font-size: 18px;
+            color: #333;
+            font-weight: 600;
+        }
+
+    .details-btn {
+        margin-top: 10px;
+        display: inline-block;
+        padding: 10px 16px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        background-color: #fafafa;
+        text-decoration: none;
+        color: #000;
+        font-weight: 500;
+        transition: background-color 0.3s;
+    }
+
+        .details-btn:hover {
+            background-color: #f0f0f0;
+        }
+
+</style>
+<h1 class="title">Наши фотографы</h1>
+
+<div class="photographers-grid">
+    @foreach (var item in Photographers)
+    {
+        <div class="photographer-card">
+            <img src="@GetPhotographerImage(item.Profile)" alt="Фотограф" />
+            @if (item.AverageRating > 0)
+            {
+                <div style="margin-bottom: 6px; display: flex; justify-content: center; align-items: center; gap: 4px; font-size: 14px; color: #333;">
+                    <span style="font-size: 18px; color: #FFD700;">★</span>
+                    <span style="font-weight: 600;">@item.AverageRating.ToString("0.0")</span>
+                    <span style="font-size: 12px; color: #888;">из 5</span>
+                </div>
+            }
+            else
+            {
+                <div style="font-size: 12px; color: #999; margin-bottom: 6px;">Рейтинг отсутствует</div>
+            }
+
+            <h3>@item.Photographer.Name</h3>
+            <a class="details-btn" href="/profil/@item.Photographer.Photographerid">Подробнее</a>
+        </div>
+    }
+</div>
+
+@code {
+    private List<(Photographer Photographer, Profilphotographer? Profile, double AverageRating)> Photographers = new();
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        Photographers = await DbContext.Photographers
+       .Select(p => new ValueTuple<Photographer, Profilphotographer?, double>(
+           p,
+           p.Profilphotographers.FirstOrDefault(),
+           DbContext.Feedbacks
+               .Where(f => f.Profilphotographerid == p.Profilphotographers.FirstOrDefault().Id)
+               .Select(f => (double?)f.Rating)
+               .Average() ?? 0
+       ))
+       .ToListAsync();
+    }
+
+    private string GetPhotographerImage(Profilphotographer? profile)
+    {
+        if (profile == null || profile.Image == null || profile.Image.Length == 0)
+        {
+            // Заглушка
+            return "images/plug.jpg";
+        }
+
+        // Изображение фотографа
+        return $"data:image/png;base64,{Convert.ToBase64String(profile.Image)}";
+    }
+}
+ 
