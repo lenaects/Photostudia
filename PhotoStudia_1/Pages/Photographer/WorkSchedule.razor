@@ -5,7 +5,7 @@
 @inject PhotostudiaContext DbContext
 @inject PhotographerState PhotographerState
 @inject NavigationManager NavigationManager
-
+@inject IDbContextFactory<PhotostudiaContext> DbFactory
 
 <style>
     .schedule-container {
@@ -134,8 +134,12 @@
                         var cursor = IsCellClickable(day, hour) && IsEditing ? "pointer" : "not-allowed";
                         var opacity = IsCellClickable(day, hour) ? "1" : "0.4";
 
-                        <td @onclick="() => CellClicked(day, hour)"
-                            style="background-color:@cellColor; cursor:@cursor; opacity:@opacity;">
+                        var localDay = day;
+                        var localHour = hour;
+
+                        <td @onclick="@(() => CellClicked(localDay, localHour))"
+                            style="background-color:@cellColor; cursor:@cursor; opacity:@opacity;"
+                            title="@GetOrderTooltip(DateOnly.FromDateTime(localDay), localHour)">
                             <div style="height:20px;"></div>
                         </td>
                     }
@@ -143,7 +147,24 @@
             }
         </tbody>
     </table>
-
+    <div style="margin-top: 25px; display: flex; justify-content: center; gap: 30px; font-size: 14px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+            <div style="width:20px; height:20px; background:#ffffff; border:1px solid #ccc;"></div>
+            <span>Выходной</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+            <div style="width:20px; height:20px; background:#d1f0d1; border:1px solid #ccc;"></div>
+            <span>Рабочее время</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+            <div style="width:20px; height:20px; background:#ffe0e0; border:1px solid #ccc;"></div>
+            <span>Заказ</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+            <div style="width:20px; height:20px; background:#fff8c4; border:1px solid #ccc;"></div>
+            <span>Резерв на дорогу</span>
+        </div>
+    </div>
   
 </div>
 
@@ -175,7 +196,9 @@
 
     private async Task LoadScheduleData()
     {
-        var photographer = await DbContext.Photographers.FindAsync(PhotographerState.PhotographerId);
+        await using var context = DbFactory.CreateDbContext(); // ✅ новый контекст
+
+        var photographer = await context.Photographers.FindAsync(PhotographerState.PhotographerId);
         if (photographer != null)
         {
             PhotographerName = photographer.Name;
@@ -183,23 +206,39 @@
             var startOfMonth = new DateOnly(CurrentMonth.Year, CurrentMonth.Month, 1);
             var endOfMonth = startOfMonth.AddMonths(1).AddDays(-1);
 
-            Schedule = await DbContext.Photographerschedules
+            Schedule = await context.Photographerschedules
                 .Where(s => s.Photographerid == PhotographerState.PhotographerId &&
                             s.Date >= startOfMonth &&
                             s.Date <= endOfMonth)
                 .ToListAsync();
 
-            Console.WriteLine($"📅 Загружено расписаний: {Schedule.Count} на {CurrentMonth:MMMM yyyy}");
-
-           Orders = await DbContext.Orders
-    .Where(o => o.Photographerid == PhotographerState.PhotographerId &&
-                o.Appointmentdate >= startOfMonth &&
-                o.Appointmentdate <= endOfMonth)
-    .ToListAsync();
+            Orders = await context.Orders
+      .Include(o => o.Client)
+      .Include(o => o.Service)
+          .ThenInclude(s => s.StudioService)
+              .ThenInclude(ss => ss.Studio)
+      .Include(o => o.Typeshooting)
+      .Include(o => o.Mobileorders)
+      .Where(o => o.Photographerid == PhotographerState.PhotographerId &&
+                  o.Appointmentdate >= startOfMonth &&
+                  o.Appointmentdate <= endOfMonth)
+      .ToListAsync();
 
             DaysInMonth = Enumerable.Range(1, DateTime.DaysInMonth(CurrentMonth.Year, CurrentMonth.Month))
                 .Select(day => new DateTime(CurrentMonth.Year, CurrentMonth.Month, day))
                 .ToList();
+
+            SelectedCells = Schedule
+     .SelectMany(s =>
+     {
+         var duration = (int)(s.Endtime - s.Starttime).TotalHours;
+         if (duration <= 0)
+             return Enumerable.Empty<(DateOnly, int)>();
+
+         var hours = Enumerable.Range((int)s.Starttime.TotalHours, duration);
+         return hours.Select(h => (s.Date, h));
+     })
+     .ToHashSet();
         }
     }
 
@@ -221,19 +260,30 @@
         }
     }
 
-    private void ToggleEditMode() => IsEditing = !IsEditing;
-
-    private void ToggleCellSelection(DateTime day, int hour)
+    private void ToggleEditMode()
     {
-        var key = (DateOnly.FromDateTime(day), hour);
+        IsEditing = !IsEditing;
 
-        if (SelectedCells.Contains(key))
-            SelectedCells.Remove(key);
+        if (IsEditing)
+        {
+            SelectedCells = Schedule
+                .SelectMany(s =>
+                {
+                    var duration = (int)(s.Endtime - s.Starttime).TotalHours;
+                    var hours = Enumerable.Range((int)s.Starttime.TotalHours, duration);
+                    return hours.Select(h => (s.Date, h));
+                })
+                .ToHashSet();
+        }
         else
-            SelectedCells.Add(key);
+        {
+            SelectedCells.Clear();
+        }
 
         StateHasChanged();
     }
+
+    
 
     private async Task SaveSchedule()
     {
@@ -268,10 +318,13 @@
             })
             .ToList();
 
-        var affectedDates = SelectedCells.Select(c => c.Date).Distinct().ToList();
-        var existing = DbContext.Photographerschedules
-            .Where(s => affectedDates.Contains(s.Date) && s.Photographerid == PhotographerState.PhotographerId);
-        DbContext.Photographerschedules.RemoveRange(existing);
+        // Удалим старые записи за текущий месяц
+        var dates = SelectedCells.Select(c => c.Date).Distinct().ToList();
+        var toRemove = DbContext.Photographerschedules
+            .Where(s => s.Photographerid == PhotographerState.PhotographerId &&
+                        dates.Contains(s.Date));
+        DbContext.Photographerschedules.RemoveRange(toRemove);
+
         DbContext.Photographerschedules.AddRange(grouped);
 
         await DbContext.SaveChangesAsync();
@@ -282,26 +335,93 @@
 
     private void CellClicked(DateTime day, int hour)
     {
+        Console.WriteLine($"Клик по ячейке: {day.ToShortDateString()} {hour}:00");
+
         if (!IsEditing || !IsCellClickable(day, hour)) return;
+
         ToggleCellSelection(day, hour);
     }
 
-    private bool IsCellClickable(DateTime day, int hour) => true;
+  
 
     private string GetCellColor(DateTime day, int hour)
     {
         var dateOnly = DateOnly.FromDateTime(day);
-        var order = Orders.FirstOrDefault(o =>
+
+        // 🔶 1. Резерв на дорогу
+        if (Orders.Any(o =>
             o.Appointmentdate == dateOnly &&
-            hour >= o.Starttime.Hour &&
-            hour < o.Endtime.Hour);
+            o.Mobileorders.Any() &&
+            o.Endtime.Hour == hour))
+        {
+            return "#fff8c4"; // светло-жёлтый
+        }
 
-        if (order != null) return "#ffe0e0";
-        if (SelectedCells.Contains((dateOnly, hour))) return "#cce5ff";
-        if (Schedule.Any(s => s.Date == dateOnly &&
-            hour >= s.Starttime.Hours && hour < s.Endtime.Hours))
+        // 🔴 2. Заказ
+        if (Orders.Any(o =>
+            o.Appointmentdate == dateOnly &&
+            hour >= o.Starttime.Hour && hour < o.Endtime.Hour))
+        {
+            return "#ffe0e0"; // красный
+        }
+
+        // 🟢 3. Пользовательское редактирование (в приоритете!)
+        if (IsEditing)
+        {
+            if (SelectedCells.Contains((dateOnly, hour)))
+                return "#d1f0d1";
+            else
+                return "#ffffff"; // Ячейка снята пользователем — показываем белый
+        }
+
+        // 🟢 4. Только если не редактируем — график из базы
+        if (Schedule.Any(s =>
+            s.Date == dateOnly &&
+            hour >= s.Starttime.TotalHours && hour < s.Endtime.TotalHours))
+        {
             return "#d1f0d1";
+        }
 
+        // ⚪ 5. По умолчанию
         return "#ffffff";
+    }
+    private bool IsCellClickable(DateTime day, int hour)
+    {
+        var cellTime = new DateTime(day.Year, day.Month, day.Day, hour, 0, 0);
+        return cellTime >= DateTime.Now.AddMinutes(-59); // даёт 1 час погрешности
+    }
+    private void ToggleCellSelection(DateTime day, int hour)
+    {
+        var key = (DateOnly.FromDateTime(day), hour);
+
+        if (SelectedCells.Contains(key))
+            SelectedCells.Remove(key);
+        else
+            SelectedCells.Add(key);
+
+        StateHasChanged();
+    }
+    private string GetOrderTooltip(DateOnly date, int hour)
+    {
+        var order = Orders.FirstOrDefault(o =>
+            o.Appointmentdate == date &&
+            hour >= o.Starttime.Hour && hour < o.Endtime.Hour);
+
+        if (order == null) return "";
+
+        string clientName = order.Client?.Name ?? "Клиент";
+        string shootingType = order.Typeshooting?.Typeshooting1 ?? "Съёмка";
+        string address = "";
+
+        if (order.Mobileorders.Any()) // выездная
+        {
+            address = $"Адрес: {order.Mobileorders.First().Eventaddress}";
+        }
+        else if (order.Service?.StudioService?.Studio != null) // студийная
+        {
+            address = $"Студия: {order.Service.StudioService.Studio.Address}";
+        }
+
+        return $"{clientName}\nТип: {shootingType}\n{address}";
     }
 }

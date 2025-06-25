@@ -1,4 +1,7 @@
 is_global = true
+build_property.MudDebugAnalyzer = 
+build_property.MudAllowedAttributePattern = 
+build_property.MudIllegalParameters = 
 build_property.TargetFramework = net7.0
 build_property.TargetPlatformMinVersion = 
 build_property.UsingMicrosoftNETSdkWeb = true
@@ -26,6 +29,26 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = TWFpbkxheW91dC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/oberu/Desktop/Диплом/PhotoStudia_2/PhotoStudia_1/Pages/Admin/AdminOrder.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQWRtaW5cQWRtaW5PcmRlci5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/oberu/Desktop/Диплом/PhotoStudia_2/PhotoStudia_1/Pages/Admin/AdminReqest.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQWRtaW5cQWRtaW5SZXFlc3QucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/oberu/Desktop/Диплом/PhotoStudia_2/PhotoStudia_1/Pages/Admin/AdminStatistics.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQWRtaW5cQWRtaW5TdGF0aXN0aWNzLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/oberu/Desktop/Диплом/PhotoStudia_2/PhotoStudia_1/Pages/Admin/OrderAdd.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQWRtaW5cT3JkZXJBZGQucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/oberu/Desktop/Диплом/PhotoStudia_2/PhotoStudia_1/Pages/Feedbacks.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcRmVlZGJhY2tzLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/oberu/Desktop/Диплом/PhotoStudia_2/PhotoStudia_1/Pages/Index.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcSW5kZXgucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
@@ -36,6 +59,10 @@ build_metadata.AdditionalFiles.CssScope =
 
 [C:/Users/oberu/Desktop/Диплом/PhotoStudia_2/PhotoStudia_1/Pages/LoginScreen/Registration.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcTG9naW5TY3JlZW5cUmVnaXN0cmF0aW9uLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/oberu/Desktop/Диплом/PhotoStudia_2/PhotoStudia_1/Pages/Photographer/MyOrder.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcUGhvdG9ncmFwaGVyXE15T3JkZXIucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/oberu/Desktop/Диплом/PhotoStudia_2/PhotoStudia_1/Pages/Photographer/OurPhotographers.razor]
@@ -54,8 +81,16 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcUGhvdG9ncmFwaGVyXFByb2ZpbGVFZGl0aW5nLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/oberu/Desktop/Диплом/PhotoStudia_2/PhotoStudia_1/Pages/Photographer/StatisticPhotograher.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcUGhvdG9ncmFwaGVyXFN0YXRpc3RpY1Bob3RvZ3JhaGVyLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/oberu/Desktop/Диплом/PhotoStudia_2/PhotoStudia_1/Pages/Photographer/WorkSchedule.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcUGhvdG9ncmFwaGVyXFdvcmtTY2hlZHVsZS5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/oberu/Desktop/Диплом/PhotoStudia_2/PhotoStudia_1/Pages/RequestModal.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcUmVxdWVzdE1vZGFsLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/oberu/Desktop/Диплом/PhotoStudia_2/PhotoStudia_1/Pages/ServicesOutdoor.razor]
@@ -68,6 +103,10 @@ build_metadata.AdditionalFiles.CssScope =
 
 [C:/Users/oberu/Desktop/Диплом/PhotoStudia_2/PhotoStudia_1/Shared/AdminLayout.razor]
 build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXEFkbWluTGF5b3V0LnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/oberu/Desktop/Диплом/PhotoStudia_2/PhotoStudia_1/Shared/InputDateLimited.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXElucHV0RGF0ZUxpbWl0ZWQucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/oberu/Desktop/Диплом/PhotoStudia_2/PhotoStudia_1/_Imports.razor]

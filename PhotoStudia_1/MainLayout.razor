@@ -17,8 +17,8 @@
             @if (servicesDropdownVisible)
             {
                 <div class="dropdown-menu">
-                    <a href="/services/studio">Студийная фотосессия</a>
-                    <a href="/services/outdoor">Выездная фотосессия</a>
+                    <a href="/services/studio" @onclick="() => CloseAllDropdowns()">Студийная фотосессия</a>
+                    <a href="/services/outdoor" @onclick="() => CloseAllDropdowns()">Выездная фотосессия</a>
                 </div>
             }
         </div>   
@@ -34,10 +34,10 @@
                 @if (dropdownVisible && !IsProfileIncomplete)
                 {
                     <div class="dropdown-menu">
-                        <a href="@($"/profil/{PhotographerState.PhotographerId}")">Профиль</a>
-                        <a href="workschedule">График работы</a>
-                        <a href="/photographer/orders">Мои заказы</a>
-                        <a href="/photographer/statistics">Личная статистика</a>
+                        <a href="@($"/profil/{PhotographerState.PhotographerId}")" @onclick="() => CloseAllDropdowns()">Профиль</a>
+                        <a href="workschedule" @onclick="() => CloseAllDropdowns()">График работы</a>
+                        <a href="/photographer/orders" @onclick="() => CloseAllDropdowns()">Мои заказы</a>
+                        <a href="/photographer/statistics" @onclick="() => CloseAllDropdowns()">Личная статистика</a>
                     </div>
                 }
             </div>
@@ -49,9 +49,9 @@
                 @if (dropdownVisible)
                 {
                     <div class="dropdown-menu">
-                        <a href="/adminorders">Заказы</a>
-                        <a href="/admin/requests">Заявки</a>
-                        <a href="/admin/statistics">Статистика</a>
+                        <a href="/adminorders" @onclick="() => CloseAllDropdowns()">Заказы</a>
+                        <a href="/admin/requests" @onclick="() => CloseAllDropdowns()">Заявки</a>
+                        <a href="/admin/statistics" @onclick="() => CloseAllDropdowns()">Статистика</a>
                     </div>
                 }
             </div>
@@ -180,5 +180,11 @@
         PhotographerState.Logout();
         AdminState.Logout();
         NavigationManager.NavigateTo("/", true);
+    }
+    private void CloseAllDropdowns()
+    {
+        dropdownVisible = false;
+        servicesDropdownVisible = false;
+        StateHasChanged(); // на всякий случай
     }
 }

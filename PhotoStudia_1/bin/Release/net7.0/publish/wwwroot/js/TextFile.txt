@@ -1,0 +1,11 @@
+﻿window.initDatePicker = (elementId, unavailableDates, dotNetHelper) => {
+    flatpickr("#" + elementId, {
+        dateFormat: "Y-m-d",
+        disable: unavailableDates,
+        onChange: function(selectedDates, dateStr) {
+            if (selectedDates.length > 0) {
+                dotNetHelper.invokeMethodAsync("OnDateSelected", dateStr);
+            }
+        }
+    });
+};

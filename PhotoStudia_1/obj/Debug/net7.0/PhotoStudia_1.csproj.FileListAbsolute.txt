@@ -174,3 +174,13 @@ C:\Users\oberu\Desktop\Диплом\PhotoStudia_2\PhotoStudia_1\bin\Debug\net7.0
 C:\Users\oberu\Desktop\Диплом\PhotoStudia_2\PhotoStudia_1\bin\Debug\net7.0\Microsoft.JSInterop.dll
 C:\Users\oberu\Desktop\Диплом\PhotoStudia_2\PhotoStudia_1\bin\Debug\net7.0\MudBlazor.dll
 C:\Users\oberu\Desktop\Диплом\PhotoStudia_2\PhotoStudia_1\obj\Debug\net7.0\PhotoStudia_1.sourcelink.json
+C:\Users\oberu\Desktop\Диплом\PhotoStudia_2\PhotoStudia_1\bin\Debug\net7.0\AWSSDK.Core.dll
+C:\Users\oberu\Desktop\Диплом\PhotoStudia_2\PhotoStudia_1\bin\Debug\net7.0\AWSSDK.S3.dll
+C:\Users\oberu\Desktop\Диплом\PhotoStudia_2\PhotoStudia_1\bin\Debug\net7.0\CommunityToolkit.HighPerformance.dll
+C:\Users\oberu\Desktop\Диплом\PhotoStudia_2\PhotoStudia_1\bin\Debug\net7.0\Microsoft.Extensions.DependencyInjection.dll
+C:\Users\oberu\Desktop\Диплом\PhotoStudia_2\PhotoStudia_1\bin\Debug\net7.0\Microsoft.Extensions.DependencyInjection.Abstractions.dll
+C:\Users\oberu\Desktop\Диплом\PhotoStudia_2\PhotoStudia_1\bin\Debug\net7.0\Microsoft.Extensions.Logging.dll
+C:\Users\oberu\Desktop\Диплом\PhotoStudia_2\PhotoStudia_1\bin\Debug\net7.0\Microsoft.Extensions.Primitives.dll
+C:\Users\oberu\Desktop\Диплом\PhotoStudia_2\PhotoStudia_1\bin\Debug\net7.0\Minio.dll
+C:\Users\oberu\Desktop\Диплом\PhotoStudia_2\PhotoStudia_1\bin\Debug\net7.0\System.IO.Hashing.dll
+C:\Users\oberu\Desktop\Диплом\PhotoStudia_2\PhotoStudia_1\bin\Debug\net7.0\System.Reactive.dll

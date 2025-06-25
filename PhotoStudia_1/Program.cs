@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using PhotoStudia_1.Services;
 using PhotoStudia_1.Models;
 using MudBlazor.Services;
+using Amazon.S3;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -20,6 +21,22 @@ builder.Services.AddServerSideBlazor();
 
 builder.Services.AddMudServices();
 
+builder.Services.AddSingleton<CloudUploaderService>();
+
+builder.Services.AddSingleton<IAmazonS3>(sp =>
+{
+    var config = new AmazonS3Config
+    {
+        ServiceURL = "https://hb.ru-msk.vkcs.cloud",
+        ForcePathStyle = true
+    };
+
+    return new AmazonS3Client(
+        builder.Configuration["VkStorage:AccessKey"],
+        builder.Configuration["VkStorage:SecretKey"],
+        config
+    );
+});
 builder.Services.AddDbContextFactory<PhotostudiaContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 

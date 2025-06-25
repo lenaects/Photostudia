@@ -7,7 +7,9 @@
 @inject NavigationManager NavigationManager
 @inject AdminState AdminState
 @using PhotoStudia_1.Pages.Admin
-
+@using MimeKit
+@using MailKit.Net.Smtp
+@inject IConfiguration Configuration
 
 <style>
     .page-container {
@@ -236,6 +238,7 @@
                         <th>Время</th>
                         <th>Цена</th>
                         <th>Даты</th>
+                        <th>Сдача</th>
                         <th>Действия</th>
                     </tr>
                 </thead>
@@ -256,7 +259,7 @@
                             <td>@order.Service?.Name</td>
                             <td>@type</td>
                             <td>@location</td>
-                            <td>@order.Starttime.ToString(@"hh\:mm") - @order.Endtime.ToString(@"hh\:mm")</td>
+                            <td>@order.Starttime.ToString("HH:mm") - @order.Endtime.ToString("HH:mm")</td>
                             <td>@total.ToString("0.00") ₽</td>
                             <td>
                                 <div>@order.Orderdate.ToString("dd.MM.yyyy")</div>
@@ -264,6 +267,18 @@
                                 @if (order.Completedphotos.Any())
                                 {
                                     <div>@order.Completedphotos.First().Completiondate.ToString("dd.MM.yyyy")</div>
+                                }
+                            </td>
+                            <td>
+                                @if (order.Completedphotos.Any())
+                                {
+                                    var completed = order.Completedphotos.First();
+                                    <div>@completed.Completiondate.ToString("dd.MM.yyyy")</div>
+                                    <div style="font-size: 12px; color: gray;">@completed.Filepath</div>
+                                }
+                                else
+                                {
+                                    <div style="color: #aaa;">–</div>
                                 }
                             </td>
                             <td>
@@ -507,6 +522,58 @@
 
         selectedOrder.Completedphotos.Add(completedPhoto);
         showCompleteOrderModal = false;
+        SendFeedbackEmail(selectedOrder);
+    }
+    private void SendFeedbackEmail(Order order)
+    {
+        try
+        {
+            var photographerId = order.Photographer?.Photographerid ?? 0;
+            var clientEmail = order.Client?.Email;
+            var clientName = order.Client?.Name ?? "клиент";
+            var completed = order.Completedphotos.FirstOrDefault();
+
+            if (string.IsNullOrWhiteSpace(clientEmail) || photographerId == 0 || completed == null)
+                return;
+
+            var fileLink = completed.Filepath;  // БЕРЁМ КАК ЕСТЬ ИЗ ПОЛЯ
+
+            var feedbackLink = $"{NavigationManager.BaseUri}feedback/{photographerId}";
+
+            var emailMessage = new MimeMessage();
+            emailMessage.From.Add(new MailboxAddress("Photo Studio", Configuration["EmailSettings:UserName"]));
+            emailMessage.To.Add(MailboxAddress.Parse(clientEmail));
+            emailMessage.Subject = "Ваши фотографии готовы!";
+
+            emailMessage.Body = new TextPart("plain")
+                {
+                    Text = $@"Здравствуйте, {clientName}!
+
+Благодарим вас за участие в фотосессии! Ваши фотографии уже готовы — вы можете скачать их по ссылке ниже:
+
+{fileLink}
+
+Также будем признательны, если вы оставите отзыв о работе нашего фотографа:
+
+{feedbackLink}
+
+С уважением,
+Photo Studio"
+                };
+
+            using var smtp = new SmtpClient();
+            smtp.Connect("smtp.yandex.ru", 465, MailKit.Security.SecureSocketOptions.SslOnConnect);
+            smtp.Authenticate(
+                Configuration["EmailSettings:UserName"],
+                Configuration["EmailSettings:Password"]
+            );
+            smtp.Send(emailMessage);
+            smtp.Disconnect(true);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка при отправке письма: {ex.Message}");
+        }
     }
 
     private void CancelCompleteOrder()

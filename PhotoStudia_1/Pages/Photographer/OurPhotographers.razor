@@ -57,8 +57,49 @@
         .details-btn:hover {
             background-color: #f0f0f0;
         }
+        @@media (max-width: 768px) {
+    .hero-content h1 {
+        font-size: 24px;
+        text-align: center;
+    }
 
+    .cta-button {
+        font-size: 16px;
+        padding: 10px 20px;
+    }
+
+    .contact-phone {
+        font-size: 14px;
+        text-align: center;
+    }
+
+    .stats {
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+    }
+
+    .stat {
+        text-align: center;
+    }
+}
+
+@@media (max-width: 480px) {
+    .hero-content h1 {
+        font-size: 20px;
+    }
+
+    .cta-button {
+        font-size: 14px;
+        padding: 8px 16px;
+    }
+
+    .contact-phone {
+        font-size: 12px;
+    }
+}
 </style>
+
 <h1 class="title">Наши фотографы</h1>
 
 <div class="photographers-grid">
@@ -88,31 +129,29 @@
 @code {
     private List<(Photographer Photographer, Profilphotographer? Profile, double AverageRating)> Photographers = new();
 
-
     protected override async Task OnInitializedAsync()
     {
         Photographers = await DbContext.Photographers
-       .Select(p => new ValueTuple<Photographer, Profilphotographer?, double>(
-           p,
-           p.Profilphotographers.FirstOrDefault(),
-           DbContext.Feedbacks
-               .Where(f => f.Profilphotographerid == p.Profilphotographers.FirstOrDefault().Id)
-               .Select(f => (double?)f.Rating)
-               .Average() ?? 0
-       ))
-       .ToListAsync();
+           .Select(p => new ValueTuple<Photographer, Profilphotographer?, double>(
+               p,
+               p.Profilphotographers.FirstOrDefault(),
+               DbContext.Feedbacks
+                   .Where(f => f.Profilphotographerid == p.Profilphotographers.FirstOrDefault().Id)
+                   .Select(f => (double?)f.Rating)
+                   .Average() ?? 0
+           ))
+           .ToListAsync();
     }
 
     private string GetPhotographerImage(Profilphotographer? profile)
     {
-        if (profile == null || profile.Image == null || profile.Image.Length == 0)
+        if (profile == null || string.IsNullOrWhiteSpace(profile.Image))
         {
-            // Заглушка
-            return "images/plug.jpg";
+            return "images/plug.jpg"; // заглушка
         }
 
-        // Изображение фотографа
-        return $"data:image/png;base64,{Convert.ToBase64String(profile.Image)}";
+        return profile.Image;
     }
+
 }
  

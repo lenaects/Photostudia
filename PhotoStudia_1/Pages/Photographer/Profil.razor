@@ -1,11 +1,12 @@
 ﻿@page "/profil/{PhotographerId:int}"
- @using PhotoStudia_1.Models
+@using PhotoStudia_1.Models
 @using Microsoft.EntityFrameworkCore
 @using PhotoStudia_1.Services
 @inject PhotostudiaContext DbContext
 @inject PhotographerState PhotographerState
 @inject NavigationManager NavigationManager
 @inject AdminState AdminState
+
 <style>
     .profile-container {
         font-family: Arial, sans-serif;
@@ -223,6 +224,34 @@
             border-color: #d1a45f;
             box-shadow: 0 0 5px rgba(209, 164, 95, 0.4);
         }
+
+    .schedule-controls {
+        margin-top: 20px;
+        display: flex;
+        justify-content: center;
+        gap: 16px;
+    }
+
+        .schedule-controls button {
+            padding: 8px 14px;
+            background-color: #D26A5A;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+
+            .schedule-controls button:disabled {
+                background-color: #ccc;
+                cursor: default;
+            }
+
+            .schedule-controls button:hover:not(:disabled) {
+                background-color: #b95449;
+            }
 </style>
 
 <div class="profile-container">
@@ -302,10 +331,7 @@
             @for (int i = 0; i < PortfolioImages.Count; i++)
             {
                 var index = i;
-                <img @key="index"
-                     src="data:image/jpeg;base64,@Convert.ToBase64String(PortfolioImages[index])"
-                     @onclick="@(() => OpenModal(index))"
-                     style="cursor: pointer;" />
+                <img src="@PortfolioImages[index]" style="cursor:pointer;" @onclick="@(() => OpenModal(index))" />
             }
         </div>
     }
@@ -363,7 +389,7 @@
         <p style="margin-top: 30px;">Отзывов пока нет</p>
     }
 
-    @if (!PhotographerState.IsLoggedIn && !AdminState.IsLoggedIn)
+   @*  @if (!PhotographerState.IsLoggedIn && !AdminState.IsLoggedIn)
     {
         <div class="feedback-section">
             <h3 style="font-size: 20px; font-weight: 600; margin-bottom: 10px;">Оставить отзыв</h3>
@@ -393,7 +419,64 @@
                 }
             </div>
         </div>
-    }
+    } *@
+  @if (AdminState.IsLoggedIn)
+{
+    <div class="schedule-container" style="margin-top: 60px;">
+        <div class="schedule-title">График работы: @AdminCurrentMonth.ToString("MMMM yyyy")</div>
+
+        <div class="schedule-controls">
+            <button @onclick="AdminPreviousMonth" disabled="@(AdminCurrentMonth <= AdminMinMonth)">← Предыдущий</button>
+            <button @onclick="AdminNextMonth" disabled="@(AdminCurrentMonth >= AdminMaxMonth)">Следующий →</button>
+        </div>
+
+        <table class="schedule-table">
+            <thead>
+                <tr>
+                    <th class="time-col">Время</th>
+                    @foreach (var day in AdminDaysInMonth)
+                    {
+                        <th>@day.Day</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @for (int hour = 9; hour < 21; hour++)
+                {
+                    <tr>
+                        <td class="time-col">@($"{hour}:00 - {hour + 1}:00")</td>
+                        @foreach (var day in AdminDaysInMonth)
+                        {
+                            var bgColor = GetAdminCellColor(day, hour);
+                            <td style="background-color:@bgColor;">
+                                <div style="height:20px;"></div>
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <div style="margin-top: 25px; display: flex; justify-content: center; gap: 30px; font-size: 14px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <div style="width:20px; height:20px; background:#ffffff; border:1px solid #ccc;"></div>
+                <span>Выходной</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <div style="width:20px; height:20px; background:#d1f0d1; border:1px solid #ccc;"></div>
+                <span>Рабочее время</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <div style="width:20px; height:20px; background:#ffe0e0; border:1px solid #ccc;"></div>
+                <span>Заказ</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <div style="width:20px; height:20px; background:#fff8c4; border:1px solid #ccc;"></div>
+                <span>Резерв после выездной</span>
+            </div>
+        </div>
+    </div>
+}
 </div>
 @code {
     private bool IsOwnProfile => PhotographerState.IsLoggedIn && PhotographerState.PhotographerId == PhotographerId;
@@ -404,7 +487,7 @@
     private Photographer? Photographer;
     private Profilphotographer? Profile;
     private List<string> Categories = new();
-    private List<byte[]> PortfolioImages = new();
+    private List<string> PortfolioImages = new();
     private bool ModalVisible = false;
     private int CurrentImageIndex = 0;
 
@@ -414,17 +497,33 @@
     private List<Feedback> Feedbacks = new();
     private Feedback NewFeedback = new();
     private string FeedbackMessage = "";
-    private string ModalImage
-    {
-        get
-        {
-            if (PortfolioImages == null || PortfolioImages.Count == 0)
-                return "";
-            if (CurrentImageIndex < 0 || CurrentImageIndex >= PortfolioImages.Count)
-                CurrentImageIndex = 0;
+    private string ModalImage => PortfolioImages[CurrentImageIndex];
+    private List<Photographerschedule> AdminSchedule = new();
+    private List<Order> AdminOrders = new();
+    private List<DateTime> AdminDaysInMonth = new();
+    private DateTime AdminCurrentMonth = DateTime.Now;
+    private DateTime AdminMinMonth => DateTime.Now.AddMonths(-2);
+    private DateTime AdminMaxMonth => DateTime.Now.AddMonths(2);
 
-            return $"data:image/jpeg;base64,{Convert.ToBase64String(PortfolioImages[CurrentImageIndex])}";
-        }
+    private async Task LoadAdminSchedule()
+    {
+        var start = new DateOnly(AdminCurrentMonth.Year, AdminCurrentMonth.Month, 1);
+        var end = start.AddMonths(1).AddDays(-1);
+
+        AdminSchedule = await DbContext.Photographerschedules
+            .Where(s => s.Photographerid == PhotographerId && s.Date >= start && s.Date <= end)
+            .ToListAsync();
+
+        AdminOrders = await DbContext.Orders
+            .Include(o => o.Mobileorders)
+            .Include(o => o.Client)
+            .Where(o => o.Photographerid == PhotographerId &&
+                        o.Appointmentdate >= start && o.Appointmentdate <= end)
+            .ToListAsync();
+
+        AdminDaysInMonth = Enumerable.Range(1, DateTime.DaysInMonth(AdminCurrentMonth.Year, AdminCurrentMonth.Month))
+            .Select(d => new DateTime(AdminCurrentMonth.Year, AdminCurrentMonth.Month, d))
+            .ToList();
     }
 
     protected override async Task OnInitializedAsync()
@@ -439,15 +538,18 @@
       .FirstOrDefaultAsync(p => p.Pfotographerid == PhotographerId);
 
         Feedbacks = await DbContext.Feedbacks
-      .Where(f => f.Profilphotographerid == Profile.Id)
-      .OrderByDescending(f => f.Id)
-      .ToListAsync();
+        .Where(f => f.Profilphotographerid == Profile.Id && !string.IsNullOrWhiteSpace(f.Feedback1))
+        .OrderByDescending(f => f.Id)
+        .ToListAsync();
 
         ServiceTypes = await DbContext.ProfilServiceTypes
       .Where(p => p.ProfilphotographerId == Profile.Id)
       .Select(p => p.ServiceType.Name)
       .ToListAsync();
-
+        if (AdminState.IsLoggedIn)
+        {
+            await LoadAdminSchedule();
+        }
         if (Profile != null)
         {
             Photographer = Profile.Pfotographer;
@@ -457,7 +559,10 @@
                 .Select(p => p.Typeshooting.Typeshooting1)
                 .ToListAsync();
 
-            PortfolioImages = Profile.Portfolios.Select(p => p.Image).ToList();
+            PortfolioImages = Profile.Portfolios
+      .Where(p => !string.IsNullOrEmpty(p.Image))
+      .Select(p => p.Image!)
+      .ToList();
         }
         AverageRating = Feedbacks.Any() ? Feedbacks.Average(f => f.Rating) : 0;
     }
@@ -491,9 +596,9 @@
 
 
     private string GetPhoto() =>
-        Profile?.Image?.Length > 0
-            ? $"data:image/jpeg;base64,{Convert.ToBase64String(Profile.Image)}"
-            : "images/plug.jpg";
+      string.IsNullOrWhiteSpace(Profile?.Image)
+          ? "images/plug.jpg"
+          : Profile.Image!;
 
     private string GetText(string? text) => string.IsNullOrWhiteSpace(text) ? "Информация отсутствует" : text;
     private async Task SubmitFeedback()
@@ -550,5 +655,42 @@
             Feedbacks.RemoveAll(f => f.Id == id);
             AverageRating = Feedbacks.Any() ? Feedbacks.Average(f => f.Rating) : 0;
         }
+    }
+    private async Task AdminPreviousMonth()
+    {
+        if (AdminCurrentMonth > AdminMinMonth)
+        {
+            AdminCurrentMonth = AdminCurrentMonth.AddMonths(-1);
+            await LoadAdminSchedule();
+        }
+    }
+
+    private async Task AdminNextMonth()
+    {
+        if (AdminCurrentMonth < AdminMaxMonth)
+        {
+            AdminCurrentMonth = AdminCurrentMonth.AddMonths(1);
+            await LoadAdminSchedule();
+        }
+    }
+
+    private string GetAdminCellColor(DateTime day, int hour)
+    {
+        var dateOnly = DateOnly.FromDateTime(day);
+
+        if (AdminOrders.Any(o => o.Appointmentdate == dateOnly &&
+                                 o.Mobileorders.Any() &&
+                                 o.Endtime.Hour == hour))
+            return "#fff8c4"; // жёлтая — резерв
+
+        if (AdminOrders.Any(o => o.Appointmentdate == dateOnly &&
+                                 hour >= o.Starttime.Hour && hour < o.Endtime.Hour))
+            return "#ffe0e0"; // красная — заказ
+
+        if (AdminSchedule.Any(s => s.Date == dateOnly &&
+                                   hour >= s.Starttime.TotalHours && hour < s.Endtime.TotalHours))
+            return "#d1f0d1"; // зелёная — рабочая
+
+        return "#ffffff"; // белая — выходной
     }
 } 

@@ -7,9 +7,9 @@
 @if (Show)
 {
     <div class="modal-overlay">
-        <div class="modal" style="background-color: #EBDACB; padding: 20px; border-radius: 10px; width: 600px; margin: 0 auto;">
-            <h2 style="text-align: center;">@((IsEditing ? "Редактирование" : "Добавление") + " заказа")</h2>
-            <p class="modal-subtitle" style="text-align: center;">Заполните данные заказа</p>
+        <div class="modal" >
+            <h2 class="modal-title">@((IsEditing ? "Редактирование" : "Добавление") + " заказа")</h2>
+            <p class="modal-subtitle">Заполните данные заказа</p>
 
             <!-- Данные клиента -->
             <input placeholder="Имя клиента" @bind="SelectedClientName" @onblur="CheckClientExistence"
@@ -24,22 +24,8 @@
             <!-- Дата заказа и дата съёмки -->
             <input type="date" @bind="OrderDate"
                    style="width: 100%; margin-bottom: 10px; padding: 10px;" required />
-            <input type="date" value="@AppointmentDate.ToString("yyyy-MM-dd")" @onchange="OnAppointmentDateChanged" 
-                   style="width: 100%; margin-bottom: 10px; padding: 10px;" required />
-
-            <!-- Услуга -->
-            <select @onchange="async e => await OnServiceChanged(e)"
-                    style="width: 100%; margin-bottom: 10px; padding: 10px;" required>
-                <option value="">Выберите услугу</option>
-                @foreach (var service in FilteredServices)
-                {
-                    <option value="@service.Serviceid" selected="@(service.Serviceid == SelectedServiceId ? "selected" : null)">
-                        @service.Name
-                    </option>
-                }
-            </select>
-
-            <!-- Тип съёмки (если есть) -->
+          
+                   <!-- Тип съёмки (если есть) -->
             @if (FilteredShootingTypes?.Any() == true)
             {
                 <select @bind="SelectedTypeShootingId"
@@ -52,6 +38,26 @@
                 </select>
             }
 
+            <!-- Услуга -->
+            <select @onchange="OnServiceTypeChanged"
+                    style="width: 100%; margin-bottom: 10px; padding: 10px;">
+                <option value="">Выберите тип услуги</option>
+                <option value="Студийная">Студийная</option>
+                <option value="Выездная">Выездная</option>
+            </select>
+            @if (!string.IsNullOrWhiteSpace(SelectedServiceType))
+            {
+                <select @bind="SelectedServiceId"
+                        style="width: 100%; margin-bottom: 10px; padding: 10px;" required>
+                    <option value="">Выберите услугу</option>
+                    @foreach (var service in FilteredServices)
+                    {
+                        <option value="@service.Serviceid">@service.Name</option>
+                    }
+                </select>
+            }
+         
+
             <!-- Мобильный заказ -->
             @if (IsMobileOrder)
             {
@@ -60,31 +66,8 @@
                 <textarea placeholder="Описание мероприятия" @bind="MobileOrderDescription"
                           style="width: 100%; margin-bottom: 10px; padding: 10px;" required></textarea>
             }
-
-            <!-- Время начала -->
-            <select @onchange="OnStartTimeChanged"
-                    style="width: 100%; margin-bottom: 10px; padding: 10px;" required>
-                <option value="">Начало съёмки</option>
-                @for (int hour = 9; hour <= 20; hour++)
-                {
-                    var time = new TimeOnly(hour, 0);
-                    <option value="@time.ToString(@"HH\:mm")">@($"{hour:00}:00")</option>
-                }
-            </select>
-
-            <!-- Время окончания -->
-            <select @onchange="OnEndTimeChanged"
-                    style="width: 100%; margin-bottom: 10px; padding: 10px;" required>
-                <option value="">Окончание съёмки</option>
-                @for (int hour = 10; hour <= 21; hour++)
-                {
-                    var time = new TimeOnly(hour, 0);
-                    <option value="@time.ToString(@"HH\:mm")">@($"{hour:00}:00")</option>
-                }
-            </select>
-
             <!-- Фотограф -->
-            <select @bind="SelectedPhotographerId"
+            <select @onchange="OnPhotographerChanged"
                     style="width: 100%; margin-bottom: 10px; padding: 10px;" required>
                 <option value="">Выберите фотографа</option>
                 @foreach (var p in AvailablePhotographers)
@@ -92,6 +75,66 @@
                     <option value="@p.Photographerid">@p.Name</option>
                 }
             </select>
+            @if (PreviewPhotographerId > 0)
+            {
+                <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 10px;">
+                    <button @onclick="() => ChangePreviewMonth(-1)">←</button>
+                    <b>@PreviewMonth.ToString("MMMM yyyy")</b>
+                    <button @onclick="() => ChangePreviewMonth(1)">→</button>
+                </div>
+                <div style="overflow:auto; max-height: 400px; border: 1px solid #ccc; border-radius: 8px; margin-top: 10px;">
+                    <table class="schedule-table" style="min-width: 800px;">
+                        <thead>
+                            <tr>
+                                <th>Время</th>
+                                @foreach (var day in Enumerable.Range(1, DateTime.DaysInMonth(PreviewMonth.Year, PreviewMonth.Month)))
+                                {
+                                    var date = new DateTime(PreviewMonth.Year, PreviewMonth.Month, day);
+                                    <th>@date.ToString("dd.MM")</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (int hour = 9; hour < 21; hour++)
+                            {
+                                <tr>
+                                    <td>@($"{hour}:00")</td>
+                                    @foreach (var day in Enumerable.Range(1, DateTime.DaysInMonth(PreviewMonth.Year, PreviewMonth.Month)))
+                                    {
+                                        var date = new DateOnly(PreviewMonth.Year, PreviewMonth.Month, day);
+                                        var color = GetPreviewCellColor(date, hour);
+                                        <td style="background:@color;">&nbsp;</td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            } 
+            <input type="date" value="@AppointmentDate.ToString("yyyy-MM-dd")" @onchange="OnAppointmentDateChanged"
+                   style="width: 100%; margin-bottom: 10px; padding: 10px;" required /> 
+
+            <!-- Время начала -->
+            <select @onchange="OnStartTimeChanged"
+                    style="width: 100%; margin-bottom: 10px; padding: 10px;" required>
+                <option value="">Начало съёмки</option>
+                @foreach (var hour in AvailableStartHours)
+                {
+                    var time = new TimeOnly(hour, 0);
+                    <option value="@time.ToString(@"HH\:mm")">@($"{hour:00}:00")</option>
+                }
+            </select>
+
+            <select @onchange="OnEndTimeChanged"
+                    style="width: 100%; margin-bottom: 10px; padding: 10px;" required>
+                <option value="">Окончание съёмки</option>
+                @foreach (var hour in AvailableEndHours)
+                {
+                    var time = new TimeOnly(hour, 0);
+                    <option value="@time.ToString(@"HH\:mm")">@($"{hour:00}:00")</option>
+                }
+            </select>
+
 
             <!-- Ошибка -->
             @if (!string.IsNullOrEmpty(ErrorMessage))
@@ -115,15 +158,41 @@
                         style="background-color: #d1a45f; color: white; padding: 10px 20px; border: none; border-radius: 5px;">
                     Сохранить
                 </button>
-                <button class="cancel-button" @onclick="() => Show = false"
-                        style="background-color: #999; color: white; padding: 10px 20px; border: none; border-radius: 5px;">
-                    Отмена
-                </button>
+                <button class="cancel-button" @onclick="() => { Show = false; ResetForm(); }">Отмена</button>
             </div>
         </div>
     </div>
 }
 <style>
+    .schedule-table {
+        border-collapse: collapse;
+        width: 100%;
+    }
+
+        .schedule-table th,
+        .schedule-table td {
+            border: 1px solid #ccc;
+            padding: 6px;
+            text-align: center;
+            min-width: 60px;
+        }
+
+        /* Зафиксировать верхнюю строку с датами */
+        .schedule-table thead th {
+            position: sticky;
+            top: 0;
+            background: #f5f5f5;
+            z-index: 2;
+        }
+
+            /* Зафиксировать левую колонку со временем */
+            .schedule-table tbody td:first-child,
+            .schedule-table thead th:first-child {
+                position: sticky;
+                left: 0;
+                background: #f5f5f5;
+                z-index: 3;
+            }
     .modal-overlay {
         position: fixed;
         top: 0;
@@ -217,7 +286,7 @@
     private string SelectedClientName { get; set; } = string.Empty;
     private string SelectedClientPhone { get; set; } = string.Empty;
     private string SelectedClientEmail { get; set; } = string.Empty;
-
+    private string SelectedServiceType { get; set; } = string.Empty;
     private string ErrorMessage { get; set; } = string.Empty;
     private bool IsSuccess { get; set; } = false;
 
@@ -244,11 +313,136 @@
     private int? SelectedTypeShootingId { get; set; }
     private List<Typeshooting> FilteredShootingTypes { get; set; } = new();
 
+    private int PreviewPhotographerId { get; set; }
+    private List<Photographerschedule> PreviewSchedule { get; set; } = new();
+    private List<Order> PreviewOrders { get; set; } = new();
+    private DateTime PreviewMonth { get; set; } = DateTime.Now;
+    private List<int> AvailableStartHours { get; set; } = new();
+    private List<int> AvailableEndHours { get; set; } = new();
+    public int Studioid { get; set; }
+    public virtual Studio Studio { get; set; }
+    private async Task UpdateAvailableHours()
+    {
+        AvailableStartHours.Clear();
+        AvailableEndHours.Clear();
+
+        if (SelectedPhotographerId == 0 || AppointmentDate == default || SelectedServiceId == 0)
+            return;
+
+        var start = AppointmentDate;
+
+        // График фотографа
+        var schedule = await DbContext.Photographerschedules
+            .FirstOrDefaultAsync(s => s.Photographerid == SelectedPhotographerId && s.Date == start);
+
+        if (schedule == null) return;
+
+        var photographerStart = (int)schedule.Starttime.TotalHours;
+        var photographerEnd = (int)schedule.Endtime.TotalHours;
+
+        // Занятое время фотографа (загружаем в память)
+        var takenOrders = await DbContext.Orders
+            .Where(o => o.Appointmentdate == start &&
+                        o.Photographerid == SelectedPhotographerId &&
+                        o.Orderid != OrderId)
+            .ToListAsync();
+
+        var takenHours = takenOrders
+            .SelectMany(o => Enumerable.Range(o.Starttime.Hour, o.Endtime.Hour - o.Starttime.Hour))
+            .ToList();
+
+        // Проверка занятости студии
+        var locationTakenHours = new List<int>();
+        var selectedService = await DbContext.Services
+            .Include(s => s.StudioService)
+                .ThenInclude(ss => ss.Studio)
+            .FirstOrDefaultAsync(s => s.Serviceid == SelectedServiceId);
+
+        if (selectedService?.StudioService?.Studio?.StudioId is int studioId)
+        {
+            var locationOrders = await DbContext.Orders
+                .Where(o => o.Appointmentdate == start &&
+                            o.Service.StudioService.StudioId == studioId &&
+                            o.Orderid != OrderId)
+                .ToListAsync();
+
+            locationTakenHours = locationOrders
+                .SelectMany(o => Enumerable.Range(o.Starttime.Hour, o.Endtime.Hour - o.Starttime.Hour))
+                .ToList();
+        }
+
+        var blockedHours = new HashSet<int>(takenHours.Concat(locationTakenHours));
+
+        for (int hour = photographerStart; hour < photographerEnd; hour++)
+        {
+            if (!blockedHours.Contains(hour))
+                AvailableStartHours.Add(hour);
+        }
+
+        // Конец — это следующее свободное время после начала
+        AvailableEndHours = AvailableStartHours
+            .Select(h => h + 1)
+            .Where(h => h <= photographerEnd && !blockedHours.Contains(h))
+            .ToList();
+    }
+    private async Task OnPhotographerChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var id))
+        {
+            SelectedPhotographerId = id;
+            PreviewPhotographerId = id;
+            PreviewMonth = DateTime.Now;
+            await LoadPhotographerScheduleAsync();
+            await UpdateAvailableHours();
+        }
+    }
+    private async Task LoadPhotographerScheduleAsync()
+    {
+        var start = new DateOnly(PreviewMonth.Year, PreviewMonth.Month, 1);
+        var end = start.AddMonths(1).AddDays(-1);
+
+        PreviewSchedule = await DbContext.Photographerschedules
+            .Where(s => s.Photographerid == PreviewPhotographerId &&
+                        s.Date >= start &&
+                        s.Date <= end)
+            .ToListAsync();
+
+        PreviewOrders = await DbContext.Orders
+            .Where(o => o.Photographerid == PreviewPhotographerId &&
+                        o.Appointmentdate >= start &&
+                        o.Appointmentdate <= end)
+            .ToListAsync();
+    }
+    private async Task ChangePreviewMonth(int offset)
+    {
+        PreviewMonth = PreviewMonth.AddMonths(offset);
+        await LoadPhotographerScheduleAsync();
+    }
+    private string GetPreviewCellColor(DateOnly date, int hour)
+    {
+        bool isOrder = PreviewOrders.Any(o =>
+            o.Appointmentdate == date &&
+            hour >= o.Starttime.Hour && hour < o.Endtime.Hour);
+
+        if (isOrder)
+            return "#ffe0e0"; // красный
+
+        bool isWork = PreviewSchedule.Any(s =>
+            s.Date == date &&
+            hour >= s.Starttime.TotalHours &&
+            hour < s.Endtime.TotalHours);
+
+        if (isWork)
+            return "#d9f9dc"; // зелёный
+
+        return "#ffffff"; // белый
+    }
     protected override async Task OnInitializedAsync()
     {
 
         if (IsEditing)
         {
+            ResetForm();
             CurrentOrder = await DbContext.Orders
                 .Include(o => o.Client)
                 .Include(o => o.Service)
@@ -284,6 +478,28 @@
         FilteredShootingTypes = await DbContext.Typeshootings.ToListAsync();
     
 }
+    private async Task OnServiceTypeChanged(ChangeEventArgs e)
+    {
+        SelectedServiceType = e.Value?.ToString() ?? "";
+
+        FilteredServices = await DbContext.Services
+            .Include(s => s.ServiceType)
+            .Where(s => s.ServiceType != null && s.ServiceType.Name == SelectedServiceType)
+            .ToListAsync();
+
+        SelectedServiceId = 0;
+        IsMobileOrder = SelectedServiceType == "Выездная";
+
+        if (!IsMobileOrder)
+        {
+            MobileOrderAddress = "";
+            MobileOrderDescription = "";
+        }
+
+        StateHasChanged();
+        await UpdateAvailablePhotographers();
+        await UpdateAvailableHours();
+    }
 
     private async Task LoadData()
     {
@@ -291,6 +507,26 @@
             .Where(s => s.ServiceType.Name == "Студийная").ToListAsync();
         AvailablePhotographers = await DbContext.Photographers.ToListAsync();
         StateHasChanged();
+    }
+
+    private void ResetForm()
+    {
+        SelectedClientName = string.Empty;
+        SelectedClientPhone = string.Empty;
+        SelectedClientEmail = string.Empty;
+        SelectedClientId = 0;
+        SelectedServiceId = 0;
+        SelectedPhotographerId = 0;
+        SelectedTypeShootingId = null;
+        OrderDate = DateOnly.FromDateTime(DateTime.Now);
+        AppointmentDate = DateOnly.FromDateTime(DateTime.Now);
+        StartTime = null;
+        EndTime = null;
+        MobileOrderAddress = string.Empty;
+        MobileOrderDescription = string.Empty;
+        IsMobileOrder = false;
+        ErrorMessage = string.Empty;
+        IsSuccess = false;
     }
 
     private async Task CheckClientExistence()
@@ -423,7 +659,8 @@
                     Orderdate = OrderDate,
                     Appointmentdate = AppointmentDate,
                     Starttime = StartTime ?? new TimeOnly(0, 0),
-                    Endtime = EndTime ?? new TimeOnly(0, 0)
+                    Endtime = EndTime ?? new TimeOnly(0, 0),
+                    Typeshootingid = SelectedTypeShootingId
                 };
 
             DbContext.Orders.Add(newOrder);
@@ -520,7 +757,7 @@
     {
         if (AppointmentDate == default || StartTime == null || EndTime == null)
         {
-            AvailablePhotographers.Clear();
+            AvailablePhotographers = await DbContext.Photographers.ToListAsync();
             return;
         }
 
@@ -566,6 +803,7 @@
                 return;
             }
             await UpdateAvailablePhotographers();
+            await UpdateAvailableHours();
             ErrorMessage = string.Empty;
         }
     }
@@ -581,6 +819,7 @@
                 return;
             }
             await UpdateAvailablePhotographers();
+            await UpdateAvailableHours();
             ErrorMessage = string.Empty;
         }
     } 
@@ -593,7 +832,7 @@
             var selectedService = await DbContext.Services
                 .FirstOrDefaultAsync(s => s.Serviceid == SelectedServiceId);
 
-            IsMobileOrder = selectedService?.Name?.Equals("Выездная фотосесия", StringComparison.OrdinalIgnoreCase) == true;
+            IsMobileOrder = selectedService?.ServiceType?.Name == "Выездная";
 
             if (!IsMobileOrder)
             {
@@ -601,6 +840,8 @@
                 MobileOrderDescription = string.Empty;
             }
         }
+        await UpdateAvailablePhotographers();
+        await UpdateAvailableHours();
     }
     private async Task LoadShootingTypesAsync()
     {

@@ -7,9 +7,9 @@ public partial class StudioImage
 {
     public int ImageId { get; set; }
 
-    public byte[] Image { get; set; } = null!;
-
     public int? StudioId { get; set; }
+
+    public string ImagePath { get; set; } = null!;
 
     public virtual Studio? Studio { get; set; }
 }

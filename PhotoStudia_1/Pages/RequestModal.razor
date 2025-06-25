@@ -1,6 +1,7 @@
 ﻿@using Microsoft.EntityFrameworkCore
 @using Microsoft.AspNetCore.Components.Forms
 @using PhotoStudia_1.Models
+@using PhotoStudia_1.Shared
 @inject PhotostudiaContext DbContext
 @if (Show)
 {
@@ -15,7 +16,7 @@
             <input placeholder="Email" @bind="Request.ClientEmail" required type="email" />
 
             <!-- Необязательный фотограф -->
-            <select @bind="Request.PhotographerId">
+            <select @onchange="OnPhotographerChanged">
                 <option value="">Выберите фотографа (необязательно)</option>
                 @foreach (var p in Photographers)
                 {
@@ -24,7 +25,7 @@
             </select>
 
             <!-- Тип услуги -->
-            <select @onchange="OnServiceTypeChanged">
+            <select  @onchange="OnServiceTypeChanged">
                 <option value="">Выберите тип услуги  (необязательно)</option>
                 @foreach (var t in ServiceTypes)
                 {
@@ -54,7 +55,24 @@
             </select>
 
             <!-- Дата -->
-        <InputDate @bind-Value="Request.ShootingDate" />
+
+            <InputDateLimited Value="Request.ShootingDate"
+                              ValueChanged="OnDateChanged"
+                              MinDate="@DateOnly.FromDateTime(DateTime.Today)"
+                              MaxDate="@DateOnly.FromDateTime(DateTime.Today.AddMonths(3))"
+                              UnavailableDates="UnavailableDates" />
+            @if (FreeIntervals.Any())
+            {
+                <div class="free-slots">
+                    <strong>Свободные интервалы:</strong>
+                    <ul>
+                        @foreach (var slot in FreeIntervals)
+                        {
+                            <li>@slot.Start.ToString(@"hh\:mm") – @slot.End.ToString(@"hh\:mm")</li>
+                        }
+                    </ul>
+                </div>
+            }
             @if (!string.IsNullOrWhiteSpace(ErrorMessage))
             {
                 <p class="error-message">@ErrorMessage</p>
@@ -62,7 +80,7 @@
 
             <!-- Кнопки -->
             <div class="button-group">
-                <button class="save-button" @onclick="SubmitRequest">Сохранить</button>
+                <button class="save-button" @onclick="SubmitRequest">Отправить</button>
                 <button class="cancel-button" @onclick="() => Show = false">Отмена</button>
             </div>
           
@@ -153,6 +171,20 @@
         font-size: 15px;
         font-weight: 500;
     }
+
+    .free-slots {
+        margin-top: 10px;
+        padding: 10px;
+        border-radius: 8px;
+        background: #f5f5f5;
+        font-size: 14px;
+        color: #333;
+    }
+
+        .free-slots ul {
+            margin: 0;
+            padding-left: 18px;
+        }
 </style>
 
 @code {
@@ -168,6 +200,9 @@
     private List<Service> Services = new();
     private List<Service> StudioServices = new();
     private List<Typeshooting> Types = new();
+    private bool _wasShown = false;
+    private List<DateOnly> UnavailableDates = new();
+    private List<(TimeSpan Start, TimeSpan End)> FreeIntervals = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -175,6 +210,108 @@
         Services = await DbContext.Services.ToListAsync();
         Types = await DbContext.Typeshootings.ToListAsync();
         ServiceTypes = await DbContext.ServiceTypes.ToListAsync();
+    }
+    private async Task OnDateChanged(DateOnly? date)
+    {
+        Request.ShootingDate = date;
+        await UpdateFreeIntervals();
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Show && !_wasShown)
+        {
+            ResetForm();
+            _wasShown = true;
+        }
+        else if (!Show)
+        {
+            _wasShown = false;
+        }
+    }
+
+    private void ResetForm()
+    {
+        Request = new Request();
+        IsStudio = false;
+        ErrorMessage = "";
+        StudioServices.Clear();
+    }
+    private async Task UpdateFreeIntervals()
+    {
+        FreeIntervals.Clear();
+
+        if (Request.PhotographerId == null || Request.ShootingDate == null)
+            return;
+
+        var date = Request.ShootingDate.Value;
+
+        var schedule = await DbContext.Photographerschedules
+            .Where(s => s.Photographerid == Request.PhotographerId && s.Date == date)
+            .ToListAsync();
+
+        if (schedule.Count == 0) return;
+
+        var orders = await DbContext.Orders
+            .Where(o => o.Photographerid == Request.PhotographerId && o.Appointmentdate == date)
+            .ToListAsync();
+
+        var busySlots = orders
+      .Select(o => (o.Starttime.ToTimeSpan(), o.Endtime.ToTimeSpan()))
+      .OrderBy(s => s.Item1)
+      .ToList();
+
+        foreach (var sched in schedule)
+        {
+            var freeStart = sched.Starttime;
+
+            foreach (var busy in busySlots)
+            {
+                if (busy.Item1 >= sched.Endtime || busy.Item2 <= sched.Starttime)
+                    continue;
+
+                if (busy.Item1 > freeStart)
+                    FreeIntervals.Add((freeStart, busy.Item1));
+
+                freeStart = busy.Item2 > freeStart ? busy.Item2 : freeStart;
+            }
+
+            if (freeStart < sched.Endtime)
+                FreeIntervals.Add((freeStart, sched.Endtime));
+        }
+    }
+    private async Task OnPhotographerChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var photographerId))
+        {
+            Request.PhotographerId = photographerId;
+
+            // Загружаем расписание и заказы
+            var schedules = await DbContext.Photographerschedules
+                .Where(s => s.Photographerid == photographerId)
+                .ToListAsync();
+
+            var orders = await DbContext.Orders
+                .Where(o => o.Photographerid == photographerId)
+                .ToListAsync();
+
+            // Вычисляем недоступные даты
+            var workingDays = schedules.Select(s => s.Date).Distinct().ToHashSet();
+            var fullyBookedDays = orders
+                .GroupBy(o => o.Appointmentdate)
+                .Where(g => g.Sum(o => (o.Endtime - o.Starttime).TotalHours) >= 12)
+                .Select(g => g.Key)
+                .ToHashSet();
+
+            var today = DateOnly.FromDateTime(DateTime.Today);
+            UnavailableDates = Enumerable.Range(0, 90)
+                .Select(i => today.AddDays(i))
+                .Where(d => !workingDays.Contains(d) || fullyBookedDays.Contains(d))
+                .ToList();
+
+            // Обновим календарь через StateHasChanged
+            StateHasChanged();
+            await UpdateFreeIntervals();
+        }
     }
 
     private async Task OnServiceTypeChanged(ChangeEventArgs e)
@@ -224,8 +361,21 @@
             return;
         }
 
+        if (Request.ShootingDate < DateOnly.FromDateTime(DateTime.Today))
+        {
+            ErrorMessage = "Нельзя выбрать прошедшую дату.";
+            return;
+        }
+
+        if (UnavailableDates.Contains(Request.ShootingDate.Value))
+        {
+            ErrorMessage = "Фотограф в этот день не работает или занят.";
+            return;
+        }
+
         DbContext.Requests.Add(Request);
         await DbContext.SaveChangesAsync();
         await ShowChanged.InvokeAsync(false);
+        ResetForm();
     }
 }

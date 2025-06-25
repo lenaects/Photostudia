@@ -7,7 +7,7 @@ public partial class Portfolio
 {
     public int Id { get; set; }
 
-    public byte[] Image { get; set; } = null!;
+    public string Image { get; set; } = null!;
 
     public int Profilphotographerid { get; set; }
 

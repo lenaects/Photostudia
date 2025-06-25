@@ -3,9 +3,12 @@
 @using PhotoStudia_1.Models
 @using PhotoStudia_1.Services
 @using Microsoft.EntityFrameworkCore
+@using Amazon.S3
+@using Amazon.S3.Model
 @inject PhotostudiaContext DbContext
 @inject NavigationManager NavigationManager
 @inject AdminState AdminState
+@inject IAmazonS3 S3Client
 <style>
     .studio-grid {
         display: flex;
@@ -213,14 +216,14 @@
         <div class="studio-grid">
         @foreach (var item in services)
         {
-          <div class="studio-card">
+                <div class="studio-card" style="opacity: @(item.Service.IsActual == false ? "0.5" : "1")">
     <div class="studio-image-slider">
         @if (item.Images.Any())
         {
             <div class="slider-track" style="width:@(item.Images.Count * 100)%">
                 @foreach (var img in item.Images)
                 {
-                    <img src="data:image/jpeg;base64,@Convert.ToBase64String(img)" class="slider-image" />
+                    <img src="@img" class="slider-image" />
                 }
             </div>
         }
@@ -239,7 +242,14 @@
                     {
                         <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 0 20px 20px;">
                             <button @onclick="() => EditService(item)" style="padding: 6px 14px; background: #2ecc71; color: white; border: none; border-radius: 6px;">✏</button>
-                            <button @onclick="() => DeleteService(item)" style="padding: 6px 14px; background: #e74c3c; color: white; border: none; border-radius: 6px;">🗑</button>
+                            @if (item.Service.IsActual == true)
+                            {
+                                <button @onclick="() => DeleteService(item)" style="padding: 6px 14px; background: #e74c3c; color: white; border: none; border-radius: 6px;">🗑</button>
+                            }
+                            else
+                            {
+                                <button @onclick="() => RestoreService(item)" style="padding: 6px 14px; background: #3498db; color: white; border: none; border-radius: 6px;">⤴ Восстановить</button>
+                            }
                         </div>
                     }
 </div>
@@ -273,7 +283,7 @@
                         @foreach (var img in CurrentImages)
                         {
                             <div class="image-container">
-                                <img src="data:image/jpeg;base64,@Convert.ToBase64String(img.Image)" />
+                                <img src="@img.ImagePath" />
                                 <button class="delete-btn" @onclick="@(() => RemoveImage(img.ImageId))">✖</button>
                             </div>
                         }
@@ -313,30 +323,32 @@
     private List<StudioImage> CurrentImages = new();
     private List<IBrowserFile> NewImages = new();
     private List<StudioServiceViewModel> services = new();
+
+
     protected override async Task OnInitializedAsync()
     {
         var studioServices = await DbContext.StudioServices
-            .Include(ss => ss.Service)
-            .Include(ss => ss.Studio)
-                .ThenInclude(s => s.StudioImages)
-            .Where(ss => ss.Service != null && ss.Studio != null)
-            .ToListAsync();
-
+     .Include(ss => ss.Service)
+     .Include(ss => ss.Studio)
+     .ThenInclude(s => s.StudioImages)
+     .Where(ss => ss.Service != null && ss.Studio != null)
+     .Where(ss => ss.Service.IsActual == true || AdminState.IsLoggedIn) // Показываем всё админу
+     .ToListAsync();
         services = studioServices.Select(ss => new StudioServiceViewModel
             {
                 Service = ss.Service!,
                 Studio = ss.Studio!,
                 Images = ss.Studio!.StudioImages
-                    .Where(img => img.Image != null)
-                    .Select(img => img.Image)
-                    .ToList()!
+                    .Where(img => !string.IsNullOrEmpty(img.ImagePath))
+                    .Select(img => img.ImagePath)
+                    .ToList()
             }).ToList();
     }
     public class StudioServiceViewModel
     {
         public Service Service { get; set; } = null!;
         public Studio Studio { get; set; } = null!;
-        public List<byte[]> Images { get; set; } = new();
+        public List<string> Images { get; set; } = new(); 
     }
     private void OpenAddModal()
     {
@@ -344,7 +356,7 @@
             {
                 Service = new Service(),
                 Studio = new Studio(),
-                Images = new List<byte[]>()
+                Images = new List<string>()
             };
         CurrentImages = new();
         NewImages = new();
@@ -402,35 +414,65 @@
             DbContext.StudioServices.Add(link);
         }
 
+        var bucketName = "photostudio-images";
+        var folder = "studios"; // можно менять по назначению
+
         foreach (var file in NewImages)
         {
-            using var stream = file.OpenReadStream(5 * 1024 * 1024);
-            using var ms = new MemoryStream();
-            await stream.CopyToAsync(ms);
+            var uniqueName = $"{Guid.NewGuid()}_{file.Name}";
+            var key = $"{folder}/{uniqueName}";
+
+            await using var stream = file.OpenReadStream(10 * 1024 * 1024); // до 10 МБ
+
+            var putRequest = new PutObjectRequest
+                {
+                    BucketName = bucketName,
+                    Key = key,
+                    InputStream = stream,
+                    CannedACL = S3CannedACL.PublicRead
+                };
+
+            await S3Client.PutObjectAsync(putRequest);
+
+            var publicUrl = $"https://{bucketName}.hb.ru-msk.vkcloud-storage.ru/{key}";
+
             var img = new StudioImage
                 {
                     StudioId = EditingService.Studio.StudioId,
-                    Image = ms.ToArray()
+                    ImagePath = publicUrl
                 };
+
             DbContext.StudioImages.Add(img);
         }
 
         await DbContext.SaveChangesAsync();
         ShowModal = false;
-        await OnInitializedAsync(); // перезагрузка
+        await OnInitializedAsync();
     }
 
     async void DeleteService(StudioServiceViewModel item)
     {
-        var studioService = await DbContext.StudioServices.FirstOrDefaultAsync(ss =>
-            ss.ServiceId == item.Service.Serviceid && ss.StudioId == item.Studio.StudioId);
+        var service = await DbContext.Services
+            .FirstOrDefaultAsync(s => s.Serviceid == item.Service.Serviceid);
 
-        if (studioService != null)
-            DbContext.StudioServices.Remove(studioService);
+        if (service != null)
+        {
+            service.IsActual = false;
+            await DbContext.SaveChangesAsync();
+        }
 
-        DbContext.Services.Remove(item.Service);
-        DbContext.Studios.Remove(item.Studio);
-        await DbContext.SaveChangesAsync();
+        await OnInitializedAsync();
+    }
+    async void RestoreService(StudioServiceViewModel item)
+    {
+        var service = await DbContext.Services
+            .FirstOrDefaultAsync(s => s.Serviceid == item.Service.Serviceid);
+
+        if (service != null)
+        {
+            service.IsActual = true;
+            await DbContext.SaveChangesAsync();
+        }
 
         await OnInitializedAsync();
     }

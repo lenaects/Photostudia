@@ -82,9 +82,9 @@
 <div class="feedback-container">
     <div class="feedback-form">
         <h2>Оставьте отзыв</h2>
-        <input placeholder="Ваше имя" @bind="NewFeedback.Nameclient" />
-        <input placeholder="Email" @bind="NewFeedback.Email" />
-        <textarea placeholder="Ваш отзыв" @bind="NewFeedback.Feedback1" rows="5"></textarea>
+        <input placeholder="Ваше имя" @bind="NewFeedback.Nameclient" disabled="@IsSubmitted" />
+        <input placeholder="Email" @bind="NewFeedback.Email" disabled="@IsSubmitted" />
+<textarea placeholder="Ваш отзыв" @bind="NewFeedback.Feedback1" rows="5" disabled="@IsSubmitted"></textarea>
 
         <div class="star-rating">
             @for (int i = 1; i <= 5; i++)
@@ -99,7 +99,7 @@
             }
         </div>
 
-        <button class="submit-button" @onclick="SubmitFeedback">Отправить</button>
+        <button class="submit-button" @onclick="SubmitFeedback" disabled="@IsSubmitted">Отправить</button>
 
         @if (!string.IsNullOrEmpty(FeedbackMessage))
         {
@@ -116,6 +116,7 @@
     private int Rating = 5;
     private int HoveredRating = 0;
     private Profilphotographer? Profile;
+    private bool IsSubmitted = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -146,6 +147,9 @@
         await DbContext.SaveChangesAsync();
 
         FeedbackMessage = "Спасибо за ваш отзыв!";
+        IsSubmitted = true;
+
+        // Очистить форму или оставить как есть
         NewFeedback = new Feedback();
         Rating = 5;
         HoveredRating = 0;

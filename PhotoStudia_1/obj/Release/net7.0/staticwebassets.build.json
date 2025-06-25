@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "18tQytlDxLTUg6eyY3WIP4NqWLqdWu4goB77pswL3/w=",
+  "Hash": "fy87n3QBHpxPNQaih/KBd8F3QK0aIGkbuqIeiA3KcRY=",
   "Source": "PhotoStudia_1",
   "BasePath": "_content/PhotoStudia_1",
   "Mode": "Default",
@@ -16,6 +16,44 @@
     }
   ],
   "Assets": [
+    {
+      "Identity": "C:\\Users\\oberu\\.nuget\\packages\\mudblazor\\7.0.0\\staticwebassets\\MudBlazor.min.css",
+      "SourceId": "MudBlazor",
+      "SourceType": "Package",
+      "ContentRoot": "C:\\Users\\oberu\\.nuget\\packages\\mudblazor\\7.0.0\\staticwebassets\\",
+      "BasePath": "_content/MudBlazor",
+      "RelativePath": "MudBlazor.min.css",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "C:\\Users\\oberu\\.nuget\\packages\\mudblazor\\7.0.0\\staticwebassets\\MudBlazor.min.css"
+    },
+    {
+      "Identity": "C:\\Users\\oberu\\.nuget\\packages\\mudblazor\\7.0.0\\staticwebassets\\MudBlazor.min.js",
+      "SourceId": "MudBlazor",
+      "SourceType": "Package",
+      "ContentRoot": "C:\\Users\\oberu\\.nuget\\packages\\mudblazor\\7.0.0\\staticwebassets\\",
+      "BasePath": "_content/MudBlazor",
+      "RelativePath": "MudBlazor.min.js",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "C:\\Users\\oberu\\.nuget\\packages\\mudblazor\\7.0.0\\staticwebassets\\MudBlazor.min.js"
+    },
     {
       "Identity": "C:\\Users\\oberu\\Desktop\\Диплом\\PhotoStudia_2\\PhotoStudia_1\\wwwroot\\css\\site.css",
       "SourceId": "PhotoStudia_1",
@@ -34,6 +72,25 @@
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
       "OriginalItemSpec": "wwwroot\\css\\site.css"
+    },
+    {
+      "Identity": "C:\\Users\\oberu\\Desktop\\Диплом\\PhotoStudia_2\\PhotoStudia_1\\wwwroot\\data\\zones.geojson",
+      "SourceId": "PhotoStudia_1",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Users\\oberu\\Desktop\\Диплом\\PhotoStudia_2\\PhotoStudia_1\\wwwroot\\",
+      "BasePath": "_content/PhotoStudia_1",
+      "RelativePath": "data/zones.geojson",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\data\\zones.geojson"
     },
     {
       "Identity": "C:\\Users\\oberu\\Desktop\\Диплом\\PhotoStudia_2\\PhotoStudia_1\\wwwroot\\images\\model.png",
@@ -55,12 +112,12 @@
       "OriginalItemSpec": "wwwroot\\images\\model.png"
     },
     {
-      "Identity": "C:\\Users\\oberu\\Desktop\\Диплом\\PhotoStudia_2\\PhotoStudia_1\\wwwroot\\js\\codeInput.js",
+      "Identity": "C:\\Users\\oberu\\Desktop\\Диплом\\PhotoStudia_2\\PhotoStudia_1\\wwwroot\\js\\datepicker.js",
       "SourceId": "PhotoStudia_1",
       "SourceType": "Discovered",
       "ContentRoot": "C:\\Users\\oberu\\Desktop\\Диплом\\PhotoStudia_2\\PhotoStudia_1\\wwwroot\\",
       "BasePath": "_content/PhotoStudia_1",
-      "RelativePath": "js/codeInput.js",
+      "RelativePath": "js/datepicker.js",
       "AssetKind": "All",
       "AssetMode": "All",
       "AssetRole": "Primary",
@@ -71,45 +128,7 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\js\\codeInput.js"
-    },
-    {
-      "Identity": "C:\\Users\\oberu\\Desktop\\Диплом\\PhotoStudia_2\\PhotoStudia_1\\wwwroot\\js\\ekb-districts.geojson",
-      "SourceId": "PhotoStudia_1",
-      "SourceType": "Discovered",
-      "ContentRoot": "C:\\Users\\oberu\\Desktop\\Диплом\\PhotoStudia_2\\PhotoStudia_1\\wwwroot\\",
-      "BasePath": "_content/PhotoStudia_1",
-      "RelativePath": "js/ekb-districts.geojson",
-      "AssetKind": "All",
-      "AssetMode": "All",
-      "AssetRole": "Primary",
-      "AssetMergeBehavior": "PreferTarget",
-      "AssetMergeSource": "",
-      "RelatedAsset": "",
-      "AssetTraitName": "",
-      "AssetTraitValue": "",
-      "CopyToOutputDirectory": "Never",
-      "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\js\\ekb-districts.geojson"
-    },
-    {
-      "Identity": "C:\\Users\\oberu\\Desktop\\Диплом\\PhotoStudia_2\\PhotoStudia_1\\wwwroot\\js\\mapInterop.js",
-      "SourceId": "PhotoStudia_1",
-      "SourceType": "Discovered",
-      "ContentRoot": "C:\\Users\\oberu\\Desktop\\Диплом\\PhotoStudia_2\\PhotoStudia_1\\wwwroot\\",
-      "BasePath": "_content/PhotoStudia_1",
-      "RelativePath": "js/mapInterop.js",
-      "AssetKind": "All",
-      "AssetMode": "All",
-      "AssetRole": "Primary",
-      "AssetMergeBehavior": "PreferTarget",
-      "AssetMergeSource": "",
-      "RelatedAsset": "",
-      "AssetTraitName": "",
-      "AssetTraitValue": "",
-      "CopyToOutputDirectory": "Never",
-      "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\js\\mapInterop.js"
+      "OriginalItemSpec": "wwwroot\\js\\datepicker.js"
     }
   ]
 }

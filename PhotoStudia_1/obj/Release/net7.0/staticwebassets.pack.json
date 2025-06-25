@@ -5,20 +5,16 @@
       "PackagePath": "staticwebassets\\css\\site.css"
     },
     {
+      "Id": "C:\\Users\\oberu\\Desktop\\Диплом\\PhotoStudia_2\\PhotoStudia_1\\wwwroot\\data\\zones.geojson",
+      "PackagePath": "staticwebassets\\data\\zones.geojson"
+    },
+    {
       "Id": "C:\\Users\\oberu\\Desktop\\Диплом\\PhotoStudia_2\\PhotoStudia_1\\wwwroot\\images\\model.png",
       "PackagePath": "staticwebassets\\images\\model.png"
     },
     {
-      "Id": "C:\\Users\\oberu\\Desktop\\Диплом\\PhotoStudia_2\\PhotoStudia_1\\wwwroot\\js\\codeInput.js",
-      "PackagePath": "staticwebassets\\js\\codeInput.js"
-    },
-    {
-      "Id": "C:\\Users\\oberu\\Desktop\\Диплом\\PhotoStudia_2\\PhotoStudia_1\\wwwroot\\js\\ekb-districts.geojson",
-      "PackagePath": "staticwebassets\\js\\ekb-districts.geojson"
-    },
-    {
-      "Id": "C:\\Users\\oberu\\Desktop\\Диплом\\PhotoStudia_2\\PhotoStudia_1\\wwwroot\\js\\mapInterop.js",
-      "PackagePath": "staticwebassets\\js\\mapInterop.js"
+      "Id": "C:\\Users\\oberu\\Desktop\\Диплом\\PhotoStudia_2\\PhotoStudia_1\\wwwroot\\js\\datepicker.js",
+      "PackagePath": "staticwebassets\\js\\datepicker.js"
     },
     {
       "Id": "obj\\Release\\net7.0\\staticwebassets\\msbuild.PhotoStudia_1.Microsoft.AspNetCore.StaticWebAssets.props",

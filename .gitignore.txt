@@ -1,0 +1,18 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Build results
+bin/
+obj/
+**/publish/
+**/out/
+*.dll
+*.pdb
+*.cache
+*.log
+
+# Others
+appsettings.*.json
+.env

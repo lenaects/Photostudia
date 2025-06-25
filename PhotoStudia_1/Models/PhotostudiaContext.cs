@@ -285,7 +285,6 @@ public partial class PhotostudiaContext : DbContext
 
             entity.HasOne(d => d.Profilphotographer).WithMany(p => p.Profiltypeshootings)
                 .HasForeignKey(d => d.Profilphotographerid)
-                .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("fk_profilphotographer");
 
             entity.HasOne(d => d.Typeshooting).WithMany(p => p.Profiltypeshootings)
@@ -335,6 +334,9 @@ public partial class PhotostudiaContext : DbContext
 
             entity.Property(e => e.Serviceid).HasColumnName("serviceid");
             entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.IsActual)
+                .HasDefaultValueSql("true")
+                .HasColumnName("is_actual");
             entity.Property(e => e.Name).HasColumnName("name");
             entity.Property(e => e.ServiceTypeId).HasColumnName("service_type_id");
             entity.Property(e => e.Unit).HasColumnName("unit");
@@ -374,7 +376,7 @@ public partial class PhotostudiaContext : DbContext
             entity.ToTable("studio_images");
 
             entity.Property(e => e.ImageId).HasColumnName("image_id");
-            entity.Property(e => e.Image).HasColumnName("image");
+            entity.Property(e => e.ImagePath).HasColumnName("image_path");
             entity.Property(e => e.StudioId).HasColumnName("studio_id");
 
             entity.HasOne(d => d.Studio).WithMany(p => p.StudioImages)

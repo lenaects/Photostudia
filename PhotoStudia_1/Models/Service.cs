@@ -15,6 +15,8 @@ public partial class Service
 
     public int? ServiceTypeId { get; set; }
 
+    public bool? IsActual { get; set; }
+
     public virtual ICollection<MobileService> MobileServices { get; } = new List<MobileService>();
 
     public virtual ICollection<Order> Orders { get; } = new List<Order>();

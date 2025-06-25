@@ -13,7 +13,7 @@ public partial class Profilphotographer
 
     public int Experience { get; set; }
 
-    public byte[] Image { get; set; } = null!;
+    public string? Image { get; set; }
 
     public virtual ICollection<Feedback> Feedbacks { get; } = new List<Feedback>();
 

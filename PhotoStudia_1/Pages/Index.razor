@@ -17,8 +17,8 @@
     <h2>О ФОТОЦЕНТРЕ</h2>
     <div class="stats">
         <div class="stat">
-            <strong>2005</strong>
-            <p>Работаем с<br />2005 года</p>
+            <strong>2020</strong>
+            <p>Работаем с<br />2020 года</p>
         </div>
         <div class="stat"> 
             <strong>10+</strong>
@@ -30,7 +30,49 @@
         </div>
     </div>
 </section>
+<style>
+    @@media (max-width: 768px) {
+    .hero-content h1 {
+        font-size: 24px;
+        text-align: center;
+    }
 
+    .cta-button {
+        font-size: 16px;
+        padding: 10px 20px;
+    }
+
+    .contact-phone {
+        font-size: 14px;
+        text-align: center;
+    }
+
+    .stats {
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+    }
+
+    .stat {
+        text-align: center;
+    }
+}
+
+@@media (max-width: 480px) {
+    .hero-content h1 {
+        font-size: 20px;
+    }
+
+    .cta-button {
+        font-size: 14px;
+        padding: 8px 16px;
+    }
+
+    .contact-phone {
+        font-size: 12px;
+    }
+}
+</style>
 @code {
     private bool ShowRequestForm = false;
 }

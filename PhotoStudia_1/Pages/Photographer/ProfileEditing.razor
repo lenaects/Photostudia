@@ -5,6 +5,7 @@
 @using PhotoStudia_1.Services
 @inject PhotostudiaContext DbContext
 @inject NavigationManager NavigationManager
+@inject CloudUploaderService Uploader
 @inject PhotographerState PhotographerState
 @inject IDbContextFactory<PhotostudiaContext> DbFactory
 
@@ -159,10 +160,10 @@
             <InputFile OnChange="OnMainPhotoChanged" />
         </div>
 
-        @if (MainPhoto != null)
+        @if (!string.IsNullOrEmpty(MainPhotoUrl))
         {
             <div class="uploaded-preview">
-                <img src="data:image/png;base64,@Convert.ToBase64String(MainPhoto)" class="preview-image" />
+                <img src="@MainPhotoUrl" class="preview-image" />
             </div>
         }
 
@@ -211,11 +212,11 @@
         @if (UploadedImages.Any())
         {
             <div class="uploaded-preview">
-                @for (int i = 0; i < UploadedImages.Count; i++)
+                @foreach (var image in UploadedImages)
                 {
-                    <div class="preview-wrapper" @key="UploadedImages[i].Id != 0 ? UploadedImages[i].Id : Guid.NewGuid()">
-                        <img src="data:image/png;base64,@Convert.ToBase64String(UploadedImages[i].Image)" class="preview-image" />
-                        <button class="delete-btn" @onclick="@(() => RemoveImage(i))">&times;</button>
+                    <div class="preview-wrapper" @key="image.Id != 0 ? image.Id : Guid.NewGuid()">
+                        <img src="@image.Image" class="preview-image" />
+                        <button class="delete-btn" @onclick="@(() => RemoveImageById(image.Id))">&times;</button>
                     </div>
                 }
             </div>
@@ -232,7 +233,7 @@
     private string PhotographerName = string.Empty;
     private string PhotographerEmail = string.Empty;
     private string PhotographerPhone = string.Empty;
-    private byte[]? MainPhoto;
+    private string? MainPhotoUrl;
     private string Description = string.Empty;
     private int Experience;
 
@@ -244,7 +245,7 @@
 
     private List<ServiceType> AllServiceTypes = new();
     private List<int> SelectedServiceTypeIds = new();
-
+    private List<int> DeletedImageIds = new();
     private string SubmitError = string.Empty;
     protected override async Task OnInitializedAsync()
     {
@@ -264,7 +265,7 @@
         {
             Description = existingProfile.Description;
             Experience = existingProfile.Experience;
-            MainPhoto = existingProfile.Image;
+            MainPhotoUrl = existingProfile.Image;
             UploadedImages = existingProfile.Portfolios.ToList();
             ExistingPortfolioIds = existingProfile.Portfolios.Select(p => p.Id).ToList();
 
@@ -314,20 +315,23 @@
         {
             using var ms = new MemoryStream();
             await file.OpenReadStream().CopyToAsync(ms);
-            UploadedImages.Add(new Portfolio
-                {
-                    Profilphotographerid = PhotographerState.PhotographerId,
-                    Image = ms.ToArray()
-                });
+            ms.Position = 0; 
+            var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.Name)}";
+            var url = await Uploader.UploadImageAsync(ms, $"profiles/{fileName}", file.ContentType);
+            UploadedImages.Add(new Portfolio { Image = url });
         }
     }
 
-    private void RemoveImage(int index)
+    private void RemoveImageById(int id)
     {
-        if (index >= 0 && index < UploadedImages.Count)
+        var image = UploadedImages.FirstOrDefault(p => p.Id == id);
+        if (image != null)
         {
-            Console.WriteLine($"Удаляем фото с индексом {index}, ID: {UploadedImages[index].Id}");
-            UploadedImages.RemoveAt(index);
+            if (image.Id != 0)
+                DeletedImageIds.Add(image.Id);
+
+            UploadedImages.Remove(image);
+            Console.WriteLine($"Удалено фото с ID: {image.Id}");
             StateHasChanged();
         }
     }
@@ -344,7 +348,7 @@
 
         var profile = await DbContext.Profilphotographers.Include(p => p.Portfolios)
             .FirstOrDefaultAsync(p => p.Pfotographerid == PhotographerState.PhotographerId);
-        if (string.IsNullOrWhiteSpace(Description) || Experience <= 0 || MainPhoto == null ||
+        if (string.IsNullOrWhiteSpace(Description) || Experience <= 0 || string.IsNullOrEmpty(MainPhotoUrl) ||
             SelectedTypeShootingIds.Count == 0 || UploadedImages.Count == 0)
         {
             SubmitError = "Заполните все обязательные поля и добавьте хотя бы одну фотографию и категорию.";
@@ -359,7 +363,7 @@
         {
             profile.Description = Description;
             profile.Experience = Experience;
-            profile.Image = MainPhoto ?? Array.Empty<byte>();
+            profile.Image = MainPhotoUrl ?? "";
             DbContext.ProfilServiceTypes.RemoveRange(
     DbContext.ProfilServiceTypes.Where(p => p.ProfilphotographerId == profile.Id));
 
@@ -393,6 +397,13 @@
                         });
                 }
             }
+            if (DeletedImageIds.Any())
+            {
+                var toRemove = await DbContext.Portfolios
+                    .Where(p => DeletedImageIds.Contains(p.Id))
+                    .ToListAsync();
+                DbContext.Portfolios.RemoveRange(toRemove);
+            }
         }
         else
         {
@@ -401,9 +412,16 @@
                     Pfotographerid = PhotographerState.PhotographerId,
                     Description = Description,
                     Experience = Experience,
-                    Image = MainPhoto ?? Array.Empty<byte>()
+                    Image = MainPhotoUrl ?? ""
                 };
             DbContext.Profilphotographers.Add(profile);
+            if (DeletedImageIds.Any())
+            {
+                var toRemove = await DbContext.Portfolios
+                    .Where(p => DeletedImageIds.Contains(p.Id))
+                    .ToListAsync();
+                DbContext.Portfolios.RemoveRange(toRemove);
+            }
             await DbContext.SaveChangesAsync();
             DbContext.ProfilServiceTypes.RemoveRange(
     DbContext.ProfilServiceTypes.Where(p => p.ProfilphotographerId == profile.Id));
@@ -439,7 +457,9 @@
         {
             using var ms = new MemoryStream();
             await file.OpenReadStream().CopyToAsync(ms);
-            MainPhoto = ms.ToArray();
+            ms.Position = 0; 
+            var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.Name)}";
+            MainPhotoUrl = await Uploader.UploadImageAsync(ms, $"photographers/{fileName}", file.ContentType);
         }
     }
 }

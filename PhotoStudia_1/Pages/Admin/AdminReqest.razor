@@ -130,7 +130,7 @@
                         <div><strong>Дата съёмки:</strong> @(r.ShootingDate?.ToString("dd.MM.yyyy") ?? "Отсутствует")</div>
                         <div><strong>Фотограф:</strong> @(r.Photographer?.Name ?? "Не указан")</div>
 
-                        <button class="delete-button" @onclick="(e) => DeleteRequest(r, e)">Удалить</button>
+                        <button class="delete-button" @onclick="() => DeleteRequest(r)">Удалить</button>
                     </div>
                 </div>
             }
@@ -254,11 +254,16 @@
         AvailablePhotographers = await DbContext.Photographers.ToListAsync();
     }
 
-    private async Task DeleteRequest(Request request, MouseEventArgs e)
+    private async Task DeleteRequest(Request request)
     {
         DbContext.Requests.Remove(request);
         await DbContext.SaveChangesAsync();
         Requests.Remove(request);
+
+        if (SelectedRequest == request)
+        {
+            SelectedRequest = null;
+        }
     }
 
     private void SelectRequest(Request r)
@@ -270,19 +275,23 @@
         UpdatePhotographerAvailability();
     }
 
-    private void UpdatePhotographerAvailability()
+    private async Task UpdatePhotographerAvailability()
     {
         PhotographerAvailability.Clear();
+
         foreach (var p in Photographers)
         {
-            bool matchesType = DbContext.Profilphotographers.Any(pr => pr.Pfotographerid == p.Photographerid &&
-                pr.Profiltypeshootings.Any(pt => pt.Typeshootingid == SelectedTypeShootingId));
-            bool isFree = DbContext.Photographerschedules.Any(s =>
-                s.Photographerid == p.Photographerid &&
-                s.Date == SelectedDate);
+            var matchesType = await DbContext.Profilphotographers
+                .Where(pr => pr.Pfotographerid == p.Photographerid)
+                .AnyAsync(pr => pr.Profiltypeshootings.Any(pt => pt.Typeshootingid == SelectedTypeShootingId));
+
+            var isFree = await DbContext.Photographerschedules
+                .AnyAsync(s => s.Photographerid == p.Photographerid && s.Date == SelectedDate);
 
             PhotographerAvailability[p.Photographerid] = matchesType && isFree;
         }
+
+        StateHasChanged(); // обновим UI
     }
 
     private async Task CreateOrder()
@@ -312,7 +321,10 @@
 
         DbContext.Orders.Add(order);
         await DbContext.SaveChangesAsync();
-        Requests.Remove(SelectedRequest);
-        SelectedRequest = null;
+      DbContext.Requests.Remove(SelectedRequest);
+await DbContext.SaveChangesAsync();
+
+Requests.Remove(SelectedRequest);
+SelectedRequest = null;
     }
 }
